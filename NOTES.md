@@ -126,6 +126,29 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - Level 1 has 4 Ghouls: one in the pillar hall, two in the side room, one in the
   winding corridor. The boss room is still empty.
 
+### Step 6: Power attacks and blocking ✅
+- **Power attack (hold left click):** the swing starts straight away. If you
+  keep holding past the wind-up, it turns into a charge. The sword pulls back
+  and trembles, and the crosshair grows and turns orange, then becomes a red ✕
+  at full charge (grey if you lack the stamina). Release to strike.
+  - Damage ×1.5 (barely charged) up to ×2.5 (full charge, ~0.8 s). Sword: 23–38.
+  - Costs 25 stamina; with less, it's just a normal swing.
+  - **Staggers** enemies for 0.8 s, cancelling an attack they're winding up.
+  - The swing and recovery are a bit slower. You walk at 60% speed while charging.
+  - Bigger orange damage numbers.
+- **Block (hold right click):** the sword is raised diagonally across your body.
+  - Blocks 60% of a hit's damage from the front (120° arc), costing 1.2 stamina
+    per point blocked. A Ghoul hit (12) → you take 5 and use ~9 stamina.
+  - A blocked enemy **recoils** (staggered for 0.6 s), giving you an opening.
+  - **Guard break:** not enough stamina → the full hit gets through and you can't
+    block for 1.2 s ("Guard broken!"). Blocking comes back by itself if you're
+    still holding right click.
+  - While blocking: 55% walking speed, no running, no attacking, and stamina
+    doesn't refill.
+  - Feedback: "Blocked" message, silver-blue screen edge flash, sword jolts.
+- All the numbers are weapon data in `weapons.js`, or in `PLAYER_STATS` (block arc,
+  guard-break time, move speeds). Shields will improve the block numbers in step 8.
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
@@ -135,7 +158,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 5. ~~A basic enemy: placeholder shape that chases you, attacks, takes damage and dies~~ ✅
    **Then:** place enemies around Level 1, playtest, and grow the level until a
    run takes 10–12 minutes (more rooms, plus `tileSize` if rooms feel cramped).
-6. Power attack (hold to charge) and blocking, both using stamina.
+6. ~~Power attack (hold to charge) and blocking, both using stamina~~ ✅
 7. Weapon data table (dagger / sword / axe / mace) and stagger from maces.
 8. Shields and armor.
 9. Healing potions (hotkey + drink delay) and health regen after 5 s.
@@ -163,7 +186,10 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - Enemies have no real pathfinding. They walk straight towards where they last
   saw you, so if you break line of sight around a corner they may lose you.
   Fine for now; smarter pathfinding can come later if it feels too easy.
-- Your hits don't interrupt an enemy's attack (maces will stagger in step 7).
+- Light hits don't interrupt an enemy's attack; only power attacks stagger
+  (maces will stagger with every hit in step 7).
+- Block and power attack make the (already easy) Ghouls even easier.
+  Rebalance when we tune Level 1.
 - An enemy pressed right up against you can poke an arm through the camera.
 
 ## Playtest feedback

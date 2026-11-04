@@ -23,12 +23,14 @@
       height: 16px;
       transform: translate(-50%, -50%);
       pointer-events: none;
+      --cross-colour: rgba(255, 255, 255, 0.85);
+      transition: transform 0.08s linear;
     }
     #crosshair::before,
     #crosshair::after {
       content: "";
       position: absolute;
-      background: rgba(255, 255, 255, 0.85);
+      background: var(--cross-colour);
     }
     #crosshair::before { left: 7px; top: 0; width: 2px; height: 16px; }
     #crosshair::after  { top: 7px; left: 0; width: 16px; height: 2px; }
@@ -121,6 +123,38 @@
       opacity: 0;
     }
 
+    /* Short messages under the crosshair ("Blocked!", "Guard broken!") */
+    #message {
+      position: fixed;
+      top: 58%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 20px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 6px #000, 0 2px 2px #000;
+      pointer-events: none;
+      opacity: 0;
+    }
+    #message.show { animation: message-fade 0.7s ease-out forwards; }
+    @keyframes message-fade {
+      0%   { opacity: 1; transform: translateX(-50%) scale(1.15); }
+      30%  { opacity: 1; transform: translateX(-50%) scale(1); }
+      100% { opacity: 0; transform: translateX(-50%) scale(1); }
+    }
+
+    /* Silver-blue flash around the screen edges when you block a hit */
+    #block-flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      box-shadow: inset 0 0 140px 30px rgba(170, 200, 255, 0.55);
+      opacity: 0;
+    }
+
+    /* Power attack damage numbers are bigger and orange */
+    .damage-number.power { font-size: 36px; color: #ffb14a; }
+
     /* Floating damage numbers */
     .damage-number {
       position: fixed;
@@ -165,10 +199,13 @@
 
   <div id="hint">
     <b>W A S D</b> move &nbsp;·&nbsp; <b>Mouse</b> look &nbsp;·&nbsp; <b>Shift</b> run<br>
-    <b>Left click</b> attack &nbsp;·&nbsp; <b>Esc</b> release mouse
+    <b>Left click</b> attack &nbsp;·&nbsp; <b>Hold left click</b> power attack<br>
+    <b>Hold right click</b> block &nbsp;·&nbsp; <b>Esc</b> release mouse
   </div>
 
   <div id="hurt-flash"></div>
+  <div id="block-flash"></div>
+  <div id="message"></div>
 
   <div id="bars">
     <div class="bar" id="health-bar"><div class="ghost"></div><div class="fill"></div><div class="label"></div></div>
@@ -183,7 +220,8 @@
   <div id="overlay">
     <h1>DUNGEON</h1>
     <p>Click to play</p>
-    <p style="opacity:0.7">W A S D to move · Mouse to look · Shift to run · Left click to attack · Esc to pause</p>
+    <p style="opacity:0.7">W A S D to move · Mouse to look · Shift to run · Esc to pause</p>
+    <p style="opacity:0.7">Left click to attack · Hold left click to power attack · Hold right click to block</p>
   </div>
 
   <!--
@@ -197,15 +235,15 @@
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "./levels.js": "./levels.js?v=5",
-        "./hud.js": "./hud.js?v=5",
-        "./weapons.js": "./weapons.js?v=5",
-        "./combat.js": "./combat.js?v=5",
-        "./dummies.js": "./dummies.js?v=5",
-        "./enemies.js": "./enemies.js?v=5"
+        "./levels.js": "./levels.js?v=6",
+        "./hud.js": "./hud.js?v=6",
+        "./weapons.js": "./weapons.js?v=6",
+        "./combat.js": "./combat.js?v=6",
+        "./dummies.js": "./dummies.js?v=6",
+        "./enemies.js": "./enemies.js?v=6"
       }
     }
   </script>
-  <script type="module" src="game.js?v=5"></script>
+  <script type="module" src="game.js?v=6"></script>
 </body>
 </html>

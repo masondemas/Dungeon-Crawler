@@ -1,10 +1,10 @@
 // =============================================================
-//  Dungeon Crawler - Step 5: the first enemy
+//  Dungeon Crawler - Step 6: power attacks and blocking
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { LEVELS } from './levels.js';
-import { updateHUD, flashHurt, showDamageNumber } from './hud.js';
+import { updateHUD, flashHurt, showDamageNumber, setCharge, showMessage, flashBlock, updateFlashes } from './hud.js';
 import { WEAPONS } from './weapons.js';
 import { createCombat } from './combat.js';
 import { createDummy } from './dummies.js';
@@ -30,6 +30,10 @@ const PLAYER_STATS = {
   staminaRegenPerSecond: 25, // stamina gained back each second while resting
   staminaRegenDelay: 1,      // seconds to wait after using stamina before it refills
   windedRecoverAt: 30,       // if stamina hits 0, you can't run again until it's back to this
+  blockArc: 120,             // blocking only stops hits coming from this wide an angle in front (degrees)
+  guardBreakTime: 1.2,       // seconds you can't block after your guard is broken
+  blockMoveSpeed: 0.55,      // walking speed multiplier while blocking
+  chargeMoveSpeed: 0.6,      // walking speed multiplier while charging a power attack
 };
 
 // The player's current numbers. These change as you play.
@@ -41,6 +45,7 @@ const player = {
   staminaRegenTimer: 0, // counts down; stamina refills when it reaches 0
   winded: false,        // true after running out of stamina completely
   dead: false,
+  guardBrokenTimer: 0,  // counts down; you can't block until it reaches 0
 };
 
 // Use up some stamina (later: attacks, power attacks and blocking will use this too)
@@ -51,6 +56,8 @@ function useStamina(amount) {
 }
 
 function updateStamina(dt) {
+  // Stamina doesn't refill while you hold your guard up
+  if (combat.isGuarding()) player.staminaRegenTimer = Math.max(player.staminaRegenTimer, 0.3);
   if (player.staminaRegenTimer > 0) {
     player.staminaRegenTimer -= dt;
     return;
@@ -60,11 +67,47 @@ function updateStamina(dt) {
 }
 
 // Take damage (later: enemies will call this, and armor will reduce the amount)
-function takeDamage(amount) {
-  if (player.dead) return;
+function takeDamage(amount, { quiet = false } = {}) {
+  if (player.dead || amount <= 0) return;
   player.health = Math.max(0, player.health - amount);
-  flashHurt();
+  if (!quiet) flashHurt();
   if (player.health === 0) playerDies();
+}
+
+// An enemy's attack reached us. Blocking it (from the front, with enough stamina) reduces the damage.
+function receiveEnemyAttack(amount, attacker) {
+  if (player.dead) return;
+
+  if (combat.isBlocking()) {
+    // Is the attacker in front of us?
+    const look = new THREE.Vector3();
+    camera.getWorldDirection(look);
+    const toAttacker = new THREE.Vector3(attacker.feet.x - camera.position.x, 0, attacker.feet.z - camera.position.z);
+    look.y = 0;
+    const inFront = look.angleTo(toAttacker) < THREE.MathUtils.degToRad(PLAYER_STATS.blockArc / 2);
+
+    if (inFront) {
+      const weapon = combat.getWeapon();
+      const blocked = amount * weapon.blockReduction;
+      const cost = blocked * weapon.blockStaminaPerDamage;
+      if (player.stamina >= cost) {
+        // Good block: take only a little damage, the attacker bounces off
+        useStamina(cost);
+        takeDamage(Math.round(amount - blocked), { quiet: true });
+        combat.blockImpact();
+        flashBlock();
+        showMessage('Blocked', '#cfe0ff');
+        attacker.recoil();
+        return;
+      }
+      // Not enough stamina: the guard breaks and the full hit gets through
+      useStamina(player.stamina);
+      combat.breakGuard();
+      player.guardBrokenTimer = PLAYER_STATS.guardBreakTime;
+      showMessage('Guard broken!', '#ff8a6a');
+    }
+  }
+  takeDamage(amount);
 }
 
 // Very simple death for now (a proper death/restart menu comes later)
@@ -290,7 +333,7 @@ const world = {
   getPlayerPosition: () => camera.position,
   canSee,
   moveCircle,
-  damagePlayer: takeDamage,
+  damagePlayer: receiveEnemyAttack,
 };
 
 buildLevel(LEVELS[0]);
@@ -332,10 +375,19 @@ controls.addEventListener('unlock', () => {
 
 // ---------- Keyboard ----------
 const keys = {};
-// Left mouse button = light attack
+// Left mouse button = attack (hold for a power attack), right mouse button = block
+let blockButtonHeld = false;
 window.addEventListener('mousedown', (e) => {
-  if (e.button === 0 && controls.isLocked && !player.dead) combat.attack();
+  if (!controls.isLocked || player.dead) return;
+  if (e.button === 0) combat.pressAttack();
+  if (e.button === 2) blockButtonHeld = true;
 });
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 0) combat.releaseAttack();
+  if (e.button === 2) blockButtonHeld = false;
+});
+// Stop the right-click menu from popping up
+window.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.addEventListener('keydown', (e) => { keys[e.code] = true; });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -448,9 +500,13 @@ function updateMovement(dt) {
   if (move.lengthSq() === 0) return 0;
 
   // You can only run if you have stamina left and aren't winded
+  // (and you can't run while blocking or charging a power attack)
   const wantsToRun = keys['ShiftLeft'] || keys['ShiftRight'];
-  const running = wantsToRun && !player.winded && player.stamina > 0;
-  const speed = running ? SETTINGS.runSpeed : SETTINGS.walkSpeed;
+  const busy = combat.isGuarding() || combat.isCharging();
+  const running = wantsToRun && !busy && !player.winded && player.stamina > 0;
+  let speed = running ? SETTINGS.runSpeed : SETTINGS.walkSpeed;
+  if (combat.isGuarding()) speed *= PLAYER_STATS.blockMoveSpeed;
+  else if (combat.isCharging()) speed *= PLAYER_STATS.chargeMoveSpeed;
   move.normalize().multiplyScalar(speed * dt); // normalize = diagonal isn't faster
 
   // Move in small slices so a big step (e.g. on a slow computer) can't skip through a wall
@@ -472,12 +528,14 @@ const combat = createCombat({
   useStamina,
   getStamina: () => player.stamina,
   // Show a floating damage number where the target is on screen
-  onHitTarget(target, damage) {
+  onHitTarget(target, damage, isPower) {
     const p = target.position.clone().project(camera);
     const x = (p.x + 1) / 2 * window.innerWidth;
     const y = (1 - p.y) / 2 * window.innerHeight - 40;
-    showDamageNumber(x, y, damage);
+    showDamageNumber(x, y, damage, isPower);
   },
+  // Show how charged a power attack is on the crosshair
+  onChargeChange: setCharge,
 });
 combat.equip(WEAPONS.sword);
 
@@ -492,6 +550,8 @@ function animate() {
   if (controls.isLocked && !player.dead) {
     updateStamina(dt);
     combat.update(dt, moveAmount);
+    player.guardBrokenTimer = Math.max(0, player.guardBrokenTimer - dt);
+    combat.setBlock(blockButtonHeld && player.guardBrokenTimer <= 0);
     for (const enemy of enemies) enemy.update(dt, camera);
     separatePeople();
     resolveCollisions(camera.position); // in case an enemy pushed us into a wall
@@ -506,6 +566,7 @@ function animate() {
     }
   }
   updateHUD(player, dt);
+  updateFlashes(dt);
   updateTorchLights(clock.elapsedTime);
 
   renderer.clear();

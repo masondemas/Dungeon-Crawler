@@ -42,7 +42,7 @@ export function createDummy(scene, x, z) {
     flash: 0,
 
     onHit(damage, direction) {
-      // Get knocked back in the direction of the swing
+      // Get knocked back in the direction of the swing (harder hits wobble more)
       this.wobbleSpeed.x += direction.x * 3;
       this.wobbleSpeed.y += direction.z * 3;
       this.flash = 1;

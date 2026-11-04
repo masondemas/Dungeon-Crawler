@@ -11,6 +11,18 @@
 //   strike        seconds of the actual swing (this is when it can hit things)
 //   recover       seconds returning to the ready pose (you can queue the next attack here)
 //   staminaCost   stamina used per light attack (0 = free, like Skyrim)
+//
+//   Power attack (hold left click):
+//   powerChargeTime   seconds of holding to reach a full charge
+//   powerMinMultiplier  damage multiplier for a barely-charged power attack
+//   powerMaxMultiplier  damage multiplier for a fully charged power attack
+//   powerStaminaCost  stamina used per power attack
+//   powerStagger      seconds a power attack knocks enemies off balance
+//
+//   Blocking (hold right click):
+//   blockReduction    how much of a hit's damage blocking stops (0.6 = 60%)
+//   blockStaminaPerDamage  stamina used for each point of damage you block
+//
 //   model         which shape to draw (see buildWeaponModel below)
 
 import * as THREE from 'three';
@@ -25,6 +37,13 @@ export const WEAPONS = {
     strike: 0.12,
     recover: 0.26,
     staminaCost: 0,
+    powerChargeTime: 0.8,
+    powerMinMultiplier: 1.5,
+    powerMaxMultiplier: 2.5,
+    powerStaminaCost: 25,
+    powerStagger: 0.8,
+    blockReduction: 0.6,
+    blockStaminaPerDamage: 1.2,
     model: 'sword',
   },
 };

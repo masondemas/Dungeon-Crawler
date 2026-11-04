@@ -125,7 +125,8 @@ export function createEnemy(scene, typeName, x, z, world) {
     radius: type.radius,
     position: new THREE.Vector3(x, 1.2, z), // chest height: what the player aims at
     feet: model.root.position,              // where it stands on the floor (moving this moves the enemy)
-    state: 'idle',          // 'idle' | 'chase' | 'windup' | 'strike' | 'recover' | 'dead'
+    state: 'idle',          // 'idle' | 'chase' | 'windup' | 'strike' | 'recover' | 'stagger' | 'dead'
+    staggerTime: 0,         // how long the current stagger lasts
     stateTime: 0,
     facing: Math.random() * Math.PI * 2,
     lastSeen: null,
@@ -133,7 +134,7 @@ export function createEnemy(scene, typeName, x, z, world) {
     knock: new THREE.Vector2(0, 0),
     walkCycle: 0,
 
-    onHit(damage, direction) {
+    onHit(damage, direction, options = {}) {
       if (!this.alive) return;
       this.health -= damage;
       this.flash = 1;
@@ -141,7 +142,22 @@ export function createEnemy(scene, typeName, x, z, world) {
       bar.group.visible = true;
       bar.fill.scale.x = Math.max(0, this.health / type.health);
       if (this.state === 'idle') this.setState('chase'); // hitting it wakes it up
-      if (this.health <= 0) this.die();
+      if (this.health <= 0) { this.die(); return; }
+      if (options.stagger) this.stagger(options.stagger); // power attacks knock it off balance
+    },
+
+    // Knocked off balance: can't move or attack for a moment (cancels an attack in progress)
+    stagger(seconds) {
+      if (!this.alive) return;
+      this.staggerTime = Math.max(seconds, this.state === 'stagger' ? this.staggerTime - this.stateTime : 0);
+      this.setState('stagger');
+    },
+
+    // Its attack bounced off the player's block
+    recoil() {
+      const back = this.facing + Math.PI;
+      this.knock.set(Math.sin(back) * 3, Math.cos(back) * 3);
+      this.stagger(0.6);
     },
 
     die() {
@@ -212,7 +228,7 @@ export function createEnemy(scene, typeName, x, z, world) {
           // Did the attack connect? Player must still be close and in front of us.
           const angleOff = Math.abs(angleDifference(Math.atan2(dx, dz), this.facing));
           if (dist <= type.attackRange + 0.5 && angleOff < THREE.MathUtils.degToRad(60) && seesPlayer) {
-            world.damagePlayer(type.damage);
+            world.damagePlayer(type.damage, this);
           }
         }
       }
@@ -226,6 +242,10 @@ export function createEnemy(scene, typeName, x, z, world) {
 
       else if (this.state === 'recover') {
         if (this.stateTime >= type.recover) this.setState('chase');
+      }
+
+      else if (this.state === 'stagger') {
+        if (this.stateTime >= this.staggerTime) this.setState('chase');
       }
 
       // Being shoved by a hit
@@ -242,6 +262,7 @@ export function createEnemy(scene, typeName, x, z, world) {
       if (this.state === 'windup') armAngle = THREE.MathUtils.lerp(ARMS_REST, ARMS_RAISED, Math.min(this.stateTime / type.windup, 1));
       else if (this.state === 'strike') armAngle = THREE.MathUtils.lerp(ARMS_RAISED, ARMS_STRUCK, Math.min(this.stateTime / 0.15, 1));
       else if (this.state === 'recover') armAngle = THREE.MathUtils.lerp(ARMS_STRUCK, ARMS_REST, Math.min(this.stateTime / 0.4, 1));
+      else if (this.state === 'stagger') armAngle = -1.2 + Math.sin(this.stateTime * 18) * 0.5; // flailing
 
       if (moving) this.walkCycle += dt * type.speed * 3.2;
       const swing = moving ? Math.sin(this.walkCycle) * 0.6 : 0;
@@ -251,8 +272,9 @@ export function createEnemy(scene, typeName, x, z, world) {
       model.arms[1].rotation.x = armAngle + (this.state === 'chase' ? swing * 0.4 : 0);
       model.body.position.y = moving ? Math.abs(Math.sin(this.walkCycle)) * 0.05 : 0;
 
-      // Flinch backwards for a moment when hit
-      model.body.rotation.x = -this.flash * 0.25;
+      // Flinch backwards for a moment when hit; reel back further while staggered
+      const reel = this.state === 'stagger' ? 0.35 * Math.max(0, 1 - this.stateTime / this.staggerTime) : 0;
+      model.body.rotation.x = -this.flash * 0.25 - reel;
 
       // Health bar always faces the camera
       if (bar.group.visible) bar.group.quaternion.copy(root.quaternion).invert().multiply(camera.quaternion);

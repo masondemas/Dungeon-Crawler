@@ -12,6 +12,8 @@ Built with plain HTML + JavaScript and [Three.js](https://threejs.org/).
 - **Mouse**: look around
 - **Shift**: run
 - **Left click**: attack
+- **Hold left click**: power attack (release to strike)
+- **Hold right click**: block
 - **Esc**: release the mouse
 
 ## Run it on your own computer
