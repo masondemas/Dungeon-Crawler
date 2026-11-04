@@ -20,6 +20,10 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - **View & movement:** first person, WASD to move, mouse to look.
 - **World:** linear dungeons made of rooms + corridors (not open world).
 - **Progression:** each level ends in a boss room; difficulty rises each level.
+- **Level size:** several medium-sized levels rather than one giant one. Each
+  level should take **10–12 minutes** to play through (exploring + fights + boss).
+  Rough guess: about 8–12 rooms with fights, joined by corridors. We'll tune this
+  by playtesting once enemies exist.
 - **Combat (melee only, Skyrim-inspired):**
   - Light attack
   - Hold-to-charge power attack
@@ -68,6 +72,8 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 3. Player stats + HUD: health bar and stamina bar.
 4. First-person weapon in view, plus the light attack (swing animation, hit detection).
 5. A basic enemy: placeholder shape that chases you, attacks, takes damage and dies.
+   **Then:** place enemies around Level 1, playtest, and grow the level until a
+   run takes 10–12 minutes (more rooms, plus `tileSize` if rooms feel cramped).
 6. Power attack (hold to charge) and blocking, both using stamina.
 7. Weapon data table (dagger / sword / axe / mace) and stagger from maces.
 8. Shields and armor.
@@ -85,6 +91,8 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   block this kind of script when a page is opened straight from a file.
 - No jumping or crouching yet (not in the plan unless we decide we want it).
 - Desktop only for now: needs a keyboard and mouse.
+- Level 1 is currently small (about 1–2 minutes to walk through). This is on
+  purpose while we build combat; it gets expanded after step 5.
 - Level 1 has no exit yet. Reaching the boss room does nothing until step 10.
 - If a map row has the wrong length, the game shows a warning in the browser
   console (F12), and the level may look broken.
