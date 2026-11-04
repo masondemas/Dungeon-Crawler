@@ -3,7 +3,7 @@
 A first-person melee dungeon crawler that runs in your browser.
 Built with plain HTML + JavaScript and [Three.js](https://threejs.org/).
 
-**Play:** https://masondemas.github.io/dungeon-crawler/ (once GitHub Pages is switched on)
+**Play:** https://masondemas.github.io/Dungeon-Crawler/ (once GitHub Pages is switched on)
 
 ## Controls
 
