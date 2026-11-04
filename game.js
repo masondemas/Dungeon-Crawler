@@ -1,8 +1,9 @@
 // =============================================================
-//  Dungeon Crawler - Step 1: one stone room, walk + look around
+//  Dungeon Crawler - Step 2: levels built from a text map
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { LEVELS } from './levels.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -10,10 +11,10 @@ const SETTINGS = {
   runSpeed: 7,          // metres per second while holding Shift
   playerHeight: 1.7,    // eye height in metres
   playerRadius: 0.4,    // how "wide" the player is for collisions
-  roomWidth: 16,        // size of the room (X direction)
-  roomDepth: 20,        // size of the room (Z direction)
-  roomHeight: 5,
-  wallThickness: 1,
+  tileSize: 2,          // each map character is this many metres wide
+  wallHeight: 4,
+  pillarSize: 1.2,
+  maxTorchLights: 8,    // only the nearest torches actually cast light (keeps the game fast)
 };
 
 // ---------- Basic setup: renderer, scene, camera ----------
@@ -24,10 +25,10 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050403);
-scene.fog = new THREE.Fog(0x050403, 6, 30); // far things fade into darkness
+scene.fog = new THREE.Fog(0x050403, 4, 26); // far things fade into darkness
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, SETTINGS.playerHeight, SETTINGS.roomDepth / 2 - 2);
+scene.add(camera);
 
 // ---------- Stone texture, drawn by code (no image files needed) ----------
 // Draws rows of grey stone blocks with darker mortar lines between them.
@@ -68,7 +69,7 @@ function makeStoneTexture({ blockW, blockH, baseShade }) {
 const wallTexture = makeStoneTexture({ blockW: 64, blockH: 32, baseShade: 110 });
 const floorTexture = makeStoneTexture({ blockW: 64, blockH: 64, baseShade: 85 });
 
-// Makes a material whose texture repeats once every 2 metres, whatever the surface size
+// Makes a material whose texture repeats once every 2 metres
 function stoneMaterial(baseTexture, widthMetres, heightMetres, tint = 0xffffff) {
   const tex = baseTexture.clone();
   tex.needsUpdate = true;
@@ -76,67 +77,160 @@ function stoneMaterial(baseTexture, widthMetres, heightMetres, tint = 0xffffff) 
   return new THREE.MeshStandardMaterial({ map: tex, color: tint, roughness: 0.95, flatShading: true });
 }
 
-// ---------- Build the room ----------
+// ---------- Lighting ----------
+scene.add(new THREE.HemisphereLight(0x8899aa, 0x221811, 0.3)); // dim general light
+
+// A faint lantern the player carries, so dark corridors aren't pitch black
+const lantern = new THREE.PointLight(0xffd9a0, 4, 9, 1.5);
+camera.add(lantern);
+
 // Every solid thing the player can bump into goes in this list.
 // Each entry is a box on the ground: { minX, maxX, minZ, maxZ }.
 const colliders = [];
 
-function addSolidBox(x, z, width, depth, height, material) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
-  mesh.position.set(x, height / 2, z);
-  scene.add(mesh);
-  colliders.push({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2 });
-  return mesh;
-}
-
-const W = SETTINGS.roomWidth;
-const D = SETTINGS.roomDepth;
-const H = SETTINGS.roomHeight;
-const T = SETTINGS.wallThickness;
-
-// Floor
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), stoneMaterial(floorTexture, W, D));
-floor.rotation.x = -Math.PI / 2;
-scene.add(floor);
-
-// Ceiling (darker)
-const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(W, D), stoneMaterial(floorTexture, W, D, 0x666666));
-ceiling.rotation.x = Math.PI / 2;
-ceiling.position.y = H;
-scene.add(ceiling);
-
-// Four walls
-addSolidBox(0, -D / 2 - T / 2, W + 2 * T, T, H, stoneMaterial(wallTexture, W, H)); // north
-addSolidBox(0,  D / 2 + T / 2, W + 2 * T, T, H, stoneMaterial(wallTexture, W, H)); // south
-addSolidBox(-W / 2 - T / 2, 0, T, D, H, stoneMaterial(wallTexture, D, H));         // west
-addSolidBox( W / 2 + T / 2, 0, T, D, H, stoneMaterial(wallTexture, D, H));         // east
-
-// Two pillars in the middle (also solid, good for testing collisions)
-addSolidBox(-3, -2, 1.2, 1.2, H, stoneMaterial(wallTexture, 1.2, H));
-addSolidBox( 3, -2, 1.2, 1.2, H, stoneMaterial(wallTexture, 1.2, H));
-
-// ---------- Lighting ----------
-scene.add(new THREE.HemisphereLight(0x8899aa, 0x221811, 0.35)); // dim general light
-
-// Wall torches: a small glowing block plus a warm flickering light
+// Every torch in the level: { position, colour }
 const torches = [];
-function addTorch(x, z) {
-  const flame = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.35, 0.2),
-    new THREE.MeshBasicMaterial({ color: 0xffaa44 })
-  );
-  flame.position.set(x, 2.6, z);
-  scene.add(flame);
 
-  const light = new THREE.PointLight(0xff9933, 25, 14, 1.6);
-  light.position.set(x, 2.6, z);
-  scene.add(light);
-  torches.push(light);
+// ---------- Build a level from its text map ----------
+function buildLevel(level) {
+  const map = level.map;
+  const T = SETTINGS.tileSize;
+  const H = SETTINGS.wallHeight;
+
+  const rows = map.length;
+  const cols = map[0].length;
+  const tileAt = (x, z) => (z < 0 || z >= rows || x < 0 || x >= cols) ? '#' : map[z][x];
+  const isWall = (c) => c === '#' || c === 'T' || c === 'R';
+  const centre = (x, z) => ({ x: x * T + T / 2, z: z * T + T / 2 });
+
+  // First, sort every square into walls, floors and pillars
+  const wallTiles = [];
+  const floorTiles = [];
+  const pillarTiles = [];
+  let start = centre(1, 1);
+
+  for (let z = 0; z < rows; z++) {
+    if (map[z].length !== cols) console.warn(`Map row ${z} has the wrong length`);
+    for (let x = 0; x < cols; x++) {
+      const c = tileAt(x, z);
+      if (isWall(c)) {
+        // Only build walls that touch a floor; walls buried deep inside rock are never seen
+        const touchesFloor = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !isWall(tileAt(x + dx, z + dz)));
+        if (touchesFloor) wallTiles.push({ x, z, c });
+      } else {
+        floorTiles.push({ x, z });
+        if (c === 'P') pillarTiles.push({ x, z });
+        if (c === 'S') start = centre(x, z);
+      }
+    }
+  }
+
+  // Walls: one block per wall square. "InstancedMesh" draws many copies of one shape very cheaply.
+  const dummy = new THREE.Object3D();
+  const walls = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(T, H, T),
+    stoneMaterial(wallTexture, T, H),
+    wallTiles.length
+  );
+  wallTiles.forEach((tile, i) => {
+    const p = centre(tile.x, tile.z);
+    dummy.position.set(p.x, H / 2, p.z);
+    dummy.updateMatrix();
+    walls.setMatrixAt(i, dummy.matrix);
+    colliders.push({ minX: p.x - T / 2, maxX: p.x + T / 2, minZ: p.z - T / 2, maxZ: p.z + T / 2 });
+  });
+  scene.add(walls);
+
+  // Floor and ceiling: one flat square per walkable square
+  const floorGeo = new THREE.PlaneGeometry(T, T);
+  const floors = new THREE.InstancedMesh(floorGeo, stoneMaterial(floorTexture, T, T), floorTiles.length);
+  const ceilings = new THREE.InstancedMesh(floorGeo, stoneMaterial(floorTexture, T, T, 0x555555), floorTiles.length);
+  floorTiles.forEach((tile, i) => {
+    const p = centre(tile.x, tile.z);
+    dummy.position.set(p.x, 0, p.z);
+    dummy.rotation.set(-Math.PI / 2, 0, 0); // lie flat, facing up
+    dummy.updateMatrix();
+    floors.setMatrixAt(i, dummy.matrix);
+    dummy.position.y = H;
+    dummy.rotation.set(Math.PI / 2, 0, 0);  // lie flat, facing down
+    dummy.updateMatrix();
+    ceilings.setMatrixAt(i, dummy.matrix);
+  });
+  dummy.rotation.set(0, 0, 0);
+  scene.add(floors, ceilings);
+
+  // Pillars
+  const S = SETTINGS.pillarSize;
+  const pillars = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(S, H, S),
+    stoneMaterial(wallTexture, S, H),
+    Math.max(pillarTiles.length, 1)
+  );
+  pillars.count = pillarTiles.length;
+  pillarTiles.forEach((tile, i) => {
+    const p = centre(tile.x, tile.z);
+    dummy.position.set(p.x, H / 2, p.z);
+    dummy.updateMatrix();
+    pillars.setMatrixAt(i, dummy.matrix);
+    colliders.push({ minX: p.x - S / 2, maxX: p.x + S / 2, minZ: p.z - S / 2, maxZ: p.z + S / 2 });
+  });
+  scene.add(pillars);
+
+  // Torches: a small glowing block on the side of the wall that faces a floor
+  for (const tile of wallTiles) {
+    if (tile.c !== 'T' && tile.c !== 'R') continue;
+    const dir = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => !isWall(tileAt(tile.x + dx, tile.z + dz)));
+    if (!dir) continue;
+    const p = centre(tile.x, tile.z);
+    const colour = tile.c === 'R' ? 0xff2a1a : 0xff9933;
+    const position = new THREE.Vector3(p.x + dir[0] * (T / 2 + 0.12), 2.6, p.z + dir[1] * (T / 2 + 0.12));
+
+    const flame = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.35, 0.2),
+      new THREE.MeshBasicMaterial({ color: tile.c === 'R' ? 0xff5533 : 0xffaa44 })
+    );
+    flame.position.copy(position);
+    scene.add(flame);
+
+    // Light sits a little further out from the wall so it lights the room, not just the wall
+    const lightPos = position.clone().add(new THREE.Vector3(dir[0] * 0.5, 0, dir[1] * 0.5));
+    torches.push({ position: lightPos, colour });
+  }
+
+  // Put the player at the start, looking the chosen way
+  const facing = { north: 0, west: Math.PI / 2, south: Math.PI, east: -Math.PI / 2 };
+  camera.position.set(start.x, SETTINGS.playerHeight, start.z);
+  camera.rotation.set(0, facing[level.startFacing] ?? 0, 0);
+
+  document.getElementById('level-name').textContent = level.name;
 }
-addTorch(-W / 2 + 0.15, -4);
-addTorch( W / 2 - 0.15, -4);
-addTorch(-W / 2 + 0.15,  5);
-addTorch( W / 2 - 0.15,  5);
+
+buildLevel(LEVELS[0]);
+
+// ---------- Torch lights ----------
+// Lots of real lights would make the game slow, so we keep a small set of lights
+// and move them to whichever torches are closest to the player.
+const torchLights = [];
+for (let i = 0; i < SETTINGS.maxTorchLights; i++) {
+  const light = new THREE.PointLight(0xff9933, 0, 14, 1.6);
+  scene.add(light);
+  torchLights.push(light);
+}
+
+function updateTorchLights(time) {
+  const byDistance = torches
+    .map((torch) => ({ torch, dist: torch.position.distanceToSquared(camera.position) }))
+    .sort((a, b) => a.dist - b.dist);
+
+  torchLights.forEach((light, i) => {
+    const entry = byDistance[i];
+    if (!entry) { light.intensity = 0; return; }
+    light.position.copy(entry.torch.position);
+    light.color.setHex(entry.torch.colour);
+    // flicker a little
+    light.intensity = 25 + Math.sin(time * 9 + entry.torch.position.x) * 2 + Math.random() * 2;
+  });
+}
 
 // ---------- Mouse look (pointer lock) ----------
 const controls = new PointerLockControls(camera, document.body);
@@ -227,12 +321,7 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1); // cap so a lag spike can't teleport you through walls
 
   updateMovement(dt);
-
-  // Make torches flicker a little
-  const t = clock.elapsedTime;
-  torches.forEach((light, i) => {
-    light.intensity = 25 + Math.sin(t * 9 + i * 2) * 2 + Math.random() * 2;
-  });
+  updateTorchLights(clock.elapsedTime);
 
   renderer.render(scene, camera);
 }
