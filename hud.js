@@ -112,7 +112,7 @@ export function updateFlashes(dt) {
 // ---------- Weapon panel (bottom right): which weapon you're holding ----------
 const weaponPanel = document.getElementById('weapon-panel');
 
-export function setWeaponPanel(allWeapons, current) {
+export function setWeaponPanel(allWeapons, current, shield, armor) {
   weaponPanel.innerHTML = '';
   const name = document.createElement('div');
   name.className = 'weapon-name';
@@ -128,4 +128,11 @@ export function setWeaponPanel(allWeapons, current) {
     slots.appendChild(slot);
   });
   weaponPanel.appendChild(slots);
+
+  // Shield and armor lines
+  const gear = document.createElement('div');
+  gear.className = 'gear';
+  const armorText = armor.damageReduction > 0 ? `${armor.name} (−${Math.round(armor.damageReduction * 100)}% damage)` : armor.name;
+  gear.innerHTML = `<span>Q</span> ${shield ? shield.name : 'No Shield'}<br><span>X</span> ${armorText}`;
+  weaponPanel.appendChild(gear);
 }

@@ -15,6 +15,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 | `weapons.js` | Weapon stats (data only) and the low-poly weapon models |
 | `combat.js` | Weapon in your hand, swing animation, hit detection |
 | `dummies.js` | Training dummies (practice targets) |
+| `equipment.js` | Shield and armor stats (data only) and shield models |
 | `enemies.js` | Enemy stats (data only), enemy models and behaviour |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
@@ -174,6 +175,27 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - Low-poly models for each: dagger (short blade), axe (long handle, flared
   blade), mace (flanged head with spike).
 
+### Step 8: Shields and armor ✅
+- **Shields** (`SHIELDS` in `equipment.js`) are held in the left hand, bottom-left
+  of the screen. With a shield, right click raises the **shield** instead of the
+  weapon, and the shield's block numbers replace the weapon's:
+
+  | | Weapon only (sword) | Wooden Shield | Iron Shield |
+  |---|---|---|---|
+  | Damage blocked | 60% | 75% | 85% |
+  | Stamina per point blocked | 1.2 | 0.9 | 0.7 |
+  | Block angle | 120° | 150° | 160° |
+  | Walk speed | – | 100% | 96% |
+
+- **Armor** (`ARMOR` in `equipment.js`) reduces every hit you take, blocked or not:
+  Leather −20%, Chainmail −35% (96% walk speed), Plate −50% (88% walk speed).
+  Order: block first, then armor on what's left.
+  Example, Ghoul hit (12): leather unblocked → 10, leather + wooden shield block → 2.
+- The equipment panel (bottom right) shows weapon, shield and armor.
+- **Start:** sword + wooden shield + leather armor.
+- **Test keys** (until pickups or classes): **Q** cycles shields (none → wooden →
+  iron), **X** cycles armor (none → leather → chainmail → plate).
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
@@ -185,7 +207,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
    run takes 10–12 minutes (more rooms, plus `tileSize` if rooms feel cramped).
 6. ~~Power attack (hold to charge) and blocking, both using stamina~~ ✅
 7. ~~Weapon data table (dagger / sword / axe / mace) and stagger from maces~~ ✅
-8. Shields and armor.
+8. ~~Shields and armor~~ ✅
 9. Healing potions (hotkey + drink delay) and health regen after 5 s.
 10. Boss room at the end of the level, then the next level with harder enemies.
 11. Menus: start, death/restart, level complete.
@@ -215,15 +237,17 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   (maces will stagger with every hit in step 7).
 - Block and power attack make the (already easy) Ghouls even easier.
   Rebalance when we tune Level 1.
-- **Open design question:** right now all 4 weapons are always available
-  (keys 1–4). Later: should you **find** weapons in the dungeon instead (start
-  with one, pick up others)? Decide before the graphics pass.
+- **Decided direction (to build later):** instead of having everything from the
+  start (keys 1–4, Q, X are test keys), gear will either be **picked up** in the
+  dungeon, or **chosen by class** (a class decides your starting weapons,
+  shield and armor). Possibly both. All gear is already data, so both work.
 - Weapon balance is a first guess. Rough damage per second: dagger ~37, sword ~45,
   axe ~51, mace ~35 (+ stagger). Tune after playtesting.
 - An enemy pressed right up against you can poke an arm through the camera.
 
 ## Playtest feedback
 
+- **Steps 1–7:** everything works.
 - **Step 5:** Ghouls feel **extremely easy**. Keep them as the starting point,
   then make them tougher when we tune Level 1 (ideas: more health, faster,
   shorter wind-up, attacking in groups, tougher enemy types later on).

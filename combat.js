@@ -3,6 +3,7 @@
 // =============================================================
 import * as THREE from 'three';
 import { buildWeaponModel } from './weapons.js';
+import { buildShieldModel } from './equipment.js';
 
 // ---------- Weapon poses ----------
 // Where the weapon sits on screen at each moment.
@@ -16,6 +17,13 @@ const POSES = {
   lowered: { pos: [0.36, -0.95, -0.55], rot: [-1.1, 0.0, 0.2] },    // out of view (while switching weapons)
 };
 
+// Shield poses (left hand)
+const SHIELD_POSES = {
+  rest:    { pos: [-0.44, -0.36, -0.62], rot: [0.25, 0.65, 0.1] },   // held low at your side
+  block:   { pos: [-0.2, -0.33, -0.6], rot: [0.12, 0.32, 0.0] },     // raised in front of you (you can see over it)
+  lowered: { pos: [-0.44, -0.95, -0.6], rot: [0.8, 0.65, 0.1] },     // out of view (while switching)
+};
+
 // Turns a pose into something we can smoothly blend between
 function toTransform(pose) {
   return {
@@ -25,6 +33,8 @@ function toTransform(pose) {
 }
 const T = {};
 for (const name in POSES) T[name] = toTransform(POSES[name]);
+const ST = {};
+for (const name in SHIELD_POSES) ST[name] = toTransform(SHIELD_POSES[name]);
 
 // Easing curves make movement start/stop smoothly instead of robotically
 const easeOut = (t) => 1 - (1 - t) * (1 - t);
@@ -46,6 +56,11 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
 
   const holder = new THREE.Group(); // moves around during swings
   weaponScene.add(holder);
+  const shieldHolder = new THREE.Group(); // the shield, in your left hand
+  weaponScene.add(shieldHolder);
+  let shield = null;
+  let shieldModel = null;
+  let shieldRaise = 1; // 0 = lowered out of view, 1 = in hand (animates when switching)
 
   let weapon = null;
   let model = null;
@@ -68,6 +83,25 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
     queued = false;
     onChargeChange(null);
     if (phase !== 'swapOut') setPhase('swapOut');
+  }
+
+  // Switch shields (null = no shield)
+  function equipShield(newShield) {
+    if (shieldModel) shieldHolder.remove(shieldModel);
+    shield = newShield;
+    shieldModel = null;
+    if (shield) {
+      shieldModel = buildShieldModel(shield);
+      shieldModel.scale.setScalar(0.7);
+      shieldHolder.add(shieldModel);
+      shieldRaise = 0; // slide up into view
+    }
+  }
+
+  // The block numbers to use right now: the shield's if you have one, otherwise the weapon's
+  function getBlockStats(defaultArc) {
+    if (shield) return { reduction: shield.blockReduction, staminaPerDamage: shield.blockStaminaPerDamage, arc: shield.blockArc };
+    return { reduction: weapon.blockReduction, staminaPerDamage: weapon.blockStaminaPerDamage, arc: defaultArc };
   }
 
   // ----- State -----
@@ -236,18 +270,34 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
       quat.slerpQuaternions(T.lowered.quat, T.rest.quat, easeOut(t));
       if (t >= 1) setPhase('ready');
     } else {
-      // Ready: blend between resting and blocking
-      pos.lerpVectors(T.rest.pos, T.block.pos, easeInOut(blockAmount));
-      quat.slerpQuaternions(T.rest.quat, T.block.quat, easeInOut(blockAmount));
+      // Ready: blend between resting and blocking (with a shield, the shield blocks instead)
+      const weaponBlock = shield ? 0 : blockAmount;
+      pos.lerpVectors(T.rest.pos, T.block.pos, easeInOut(weaponBlock));
+      quat.slerpQuaternions(T.rest.quat, T.block.quat, easeInOut(weaponBlock));
     }
 
-    // Jolt when a hit lands on our block
-    if (impact > 0) {
+    // Jolt when a hit lands on our block (on the weapon, or on the shield)
+    if (impact > 0 && !shield) {
       pos.z += impact * 0.08;
       pos.y -= impact * 0.04;
       quat.multiply(tmpQuat.setFromEuler(tmpEuler.set(impact * 0.3, 0, 0)));
-      impact = Math.max(0, impact - dt * 5);
     }
+
+    // ----- Shield -----
+    if (shield) {
+      shieldRaise = Math.min(1, shieldRaise + dt / 0.25);
+      const sPos = new THREE.Vector3().lerpVectors(ST.rest.pos, ST.block.pos, easeInOut(blockAmount));
+      const sQuat = new THREE.Quaternion().slerpQuaternions(ST.rest.quat, ST.block.quat, easeInOut(blockAmount));
+      sPos.lerpVectors(ST.lowered.pos, sPos, easeOut(shieldRaise));
+      if (impact > 0) { sPos.z += impact * 0.07; sPos.y -= impact * 0.03; }
+      // Bob with your steps (a little out of time with the weapon)
+      const sBob = blockAmount > 0.5 ? 0.3 : 1;
+      sPos.x += Math.sin(bobTime + 0.6) * 0.01 * moveAmount * sBob;
+      sPos.y += Math.abs(Math.cos(bobTime + 0.6)) * 0.014 * moveAmount * sBob;
+      shieldHolder.position.copy(sPos);
+      shieldHolder.quaternion.copy(sQuat);
+    }
+    impact = Math.max(0, impact - dt * 5);
 
     // Gentle bob while walking
     bobTime += dt * (4 + moveAmount * 6);
@@ -272,6 +322,9 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
 
   return {
     equip,
+    equipShield,
+    getShield: () => shield,
+    getBlockStats,
     pressAttack,
     releaseAttack,
     setBlock,

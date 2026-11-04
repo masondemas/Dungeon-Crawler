@@ -1,11 +1,12 @@
 // =============================================================
-//  Dungeon Crawler - Step 7: daggers, swords, axes and maces
+//  Dungeon Crawler - Step 8: shields and armor
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { LEVELS } from './levels.js';
 import { updateHUD, flashHurt, showDamageNumber, setCharge, showMessage, flashBlock, updateFlashes, setWeaponPanel } from './hud.js';
 import { WEAPONS, WEAPON_KEYS } from './weapons.js';
+import { SHIELDS, SHIELD_KEYS, ARMOR, ARMOR_KEYS } from './equipment.js';
 import { createCombat } from './combat.js';
 import { createDummy } from './dummies.js';
 import { createEnemy } from './enemies.js';
@@ -46,6 +47,7 @@ const player = {
   winded: false,        // true after running out of stamina completely
   dead: false,
   guardBrokenTimer: 0,  // counts down; you can't block until it reaches 0
+  armor: ARMOR.leather, // what you're wearing (see equipment.js)
 };
 
 // Use up some stamina (later: attacks, power attacks and blocking will use this too)
@@ -84,16 +86,16 @@ function receiveEnemyAttack(amount, attacker) {
     camera.getWorldDirection(look);
     const toAttacker = new THREE.Vector3(attacker.feet.x - camera.position.x, 0, attacker.feet.z - camera.position.z);
     look.y = 0;
-    const inFront = look.angleTo(toAttacker) < THREE.MathUtils.degToRad(PLAYER_STATS.blockArc / 2);
+    const block = combat.getBlockStats(PLAYER_STATS.blockArc); // shield numbers if you have one
+    const inFront = look.angleTo(toAttacker) < THREE.MathUtils.degToRad(block.arc / 2);
 
     if (inFront) {
-      const weapon = combat.getWeapon();
-      const blocked = amount * weapon.blockReduction;
-      const cost = blocked * weapon.blockStaminaPerDamage;
+      const blocked = amount * block.reduction;
+      const cost = blocked * block.staminaPerDamage;
       if (player.stamina >= cost) {
         // Good block: take only a little damage, the attacker bounces off
         useStamina(cost);
-        takeDamage(Math.round(amount - blocked), { quiet: true });
+        takeDamage(applyArmor(amount - blocked), { quiet: true });
         combat.blockImpact();
         flashBlock();
         showMessage('Blocked', '#cfe0ff');
@@ -107,7 +109,12 @@ function receiveEnemyAttack(amount, attacker) {
       showMessage('Guard broken!', '#ff8a6a');
     }
   }
-  takeDamage(amount);
+  takeDamage(applyArmor(amount));
+}
+
+// Armor takes a share off every hit
+function applyArmor(amount) {
+  return Math.round(amount * (1 - player.armor.damageReduction));
 }
 
 // Very simple death for now (a proper death/restart menu comes later)
@@ -394,6 +401,9 @@ window.addEventListener('keydown', (e) => {
   // Number keys 1-4 switch weapons (for now; later you might find weapons in the dungeon)
   const slot = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
   if (slot !== -1 && !e.repeat && controls.isLocked && !player.dead) equipWeapon(WEAPON_KEYS[slot]);
+  // TEST KEYS until we have pickups or classes: Q cycles shields, X cycles armor
+  if (e.code === 'KeyQ' && !e.repeat && controls.isLocked && !player.dead) cycleShield();
+  if (e.code === 'KeyX' && !e.repeat && controls.isLocked && !player.dead) cycleArmor();
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
@@ -510,7 +520,8 @@ function updateMovement(dt) {
   const busy = combat.isGuarding() || combat.isCharging();
   const running = wantsToRun && !busy && !player.winded && player.stamina > 0;
   let speed = running ? SETTINGS.runSpeed : SETTINGS.walkSpeed;
-  speed *= combat.getWeapon().moveSpeed; // heavy weapons slow you down a little
+  // Heavy weapons, shields and armor slow you down a little
+  speed *= combat.getWeapon().moveSpeed * (combat.getShield()?.moveSpeed ?? 1) * player.armor.moveSpeed;
   if (combat.isGuarding()) speed *= PLAYER_STATS.blockMoveSpeed;
   else if (combat.isCharging()) speed *= PLAYER_STATS.chargeMoveSpeed;
   move.normalize().multiplyScalar(speed * dt); // normalize = diagonal isn't faster
@@ -543,14 +554,37 @@ const combat = createCombat({
   // Show how charged a power attack is on the crosshair
   onChargeChange: setCharge,
 });
+// ---------- Equipment ----------
+function refreshEquipmentPanel(weapon = combat.getWeapon()) {
+  setWeaponPanel(WEAPON_KEYS.map((k) => WEAPONS[k]), weapon, combat.getShield(), player.armor);
+}
+
 function equipWeapon(key) {
   const weapon = WEAPONS[key];
   combat.equip(weapon);
-  setWeaponPanel(WEAPON_KEYS.map((k) => WEAPONS[k]), weapon);
+  refreshEquipmentPanel(weapon);
   showMessage(weapon.name);
 }
+
+function cycleShield() {
+  const current = SHIELD_KEYS.findIndex((k) => (k ? SHIELDS[k] : null) === combat.getShield());
+  const next = SHIELD_KEYS[(current + 1) % SHIELD_KEYS.length];
+  combat.equipShield(next ? SHIELDS[next] : null);
+  refreshEquipmentPanel();
+  showMessage(next ? SHIELDS[next].name : 'No Shield');
+}
+
+function cycleArmor() {
+  const current = ARMOR_KEYS.findIndex((k) => ARMOR[k] === player.armor);
+  player.armor = ARMOR[ARMOR_KEYS[(current + 1) % ARMOR_KEYS.length]];
+  refreshEquipmentPanel();
+  showMessage(player.armor.name);
+}
+
+// Starting equipment
 combat.equip(WEAPONS.sword);
-setWeaponPanel(WEAPON_KEYS.map((k) => WEAPONS[k]), WEAPONS.sword);
+combat.equipShield(SHIELDS.wooden);
+refreshEquipmentPanel();
 
 // ---------- Main loop ----------
 const clock = new THREE.Clock();

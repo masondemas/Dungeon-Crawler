@@ -15,6 +15,7 @@ Built with plain HTML + JavaScript and [Three.js](https://threejs.org/).
 - **Hold left click**: power attack (release to strike)
 - **Hold right click**: block
 - **1 – 4**: switch weapon (dagger, sword, axe, mace)
+- **Q**: switch shield · **X**: switch armor (test keys)
 - **Esc**: release the mouse
 
 ## Run it on your own computer
