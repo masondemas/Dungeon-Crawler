@@ -33,7 +33,7 @@ const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
 // ---------- Setup ----------
 // The weapon is drawn in its own little scene on top of the world,
 // so it never pokes through walls when you stand close to them.
-export function createCombat({ camera, getTargets, useStamina, getStamina, onHitTarget }) {
+export function createCombat({ camera, getTargets, canSee, useStamina, getStamina, onHitTarget }) {
   const weaponScene = new THREE.Scene();
   const weaponCamera = new THREE.PerspectiveCamera(60, camera.aspect, 0.01, 10);
   weaponScene.add(new THREE.HemisphereLight(0xffe2b0, 0x221811, 0.9));
@@ -98,6 +98,7 @@ export function createCombat({ camera, getTargets, useStamina, getStamina, onHit
       const angle = forward.angleTo(toTarget.normalize());
       const extra = Math.atan2(target.radius, Math.max(dist, 0.01)); // wide targets are easier to clip
       if (angle > halfArc + extra) continue;                         // not in front of us
+      if (!canSee(camera.position, target.position)) continue;       // a wall is in the way
 
       alreadyHit.add(target);
       // Push direction = sideways sweep (right to left) plus a bit forward

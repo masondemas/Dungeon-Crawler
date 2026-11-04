@@ -1,5 +1,5 @@
 // =============================================================
-//  Dungeon Crawler - Step 4: sword and light attack
+//  Dungeon Crawler - Step 5: the first enemy
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -8,6 +8,7 @@ import { updateHUD, flashHurt, showDamageNumber } from './hud.js';
 import { WEAPONS } from './weapons.js';
 import { createCombat } from './combat.js';
 import { createDummy } from './dummies.js';
+import { createEnemy } from './enemies.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -39,6 +40,7 @@ const player = {
   maxStamina: PLAYER_STATS.maxStamina,
   staminaRegenTimer: 0, // counts down; stamina refills when it reaches 0
   winded: false,        // true after running out of stamina completely
+  dead: false,
 };
 
 // Use up some stamina (later: attacks, power attacks and blocking will use this too)
@@ -59,9 +61,19 @@ function updateStamina(dt) {
 
 // Take damage (later: enemies will call this, and armor will reduce the amount)
 function takeDamage(amount) {
+  if (player.dead) return;
   player.health = Math.max(0, player.health - amount);
   flashHurt();
+  if (player.health === 0) playerDies();
 }
+
+// Very simple death for now (a proper death/restart menu comes later)
+function playerDies() {
+  player.dead = true;
+  document.getElementById('death-screen').classList.remove('hidden');
+  controls.unlock();
+}
+document.getElementById('death-screen').addEventListener('click', () => location.reload());
 
 // ---------- Basic setup: renderer, scene, camera ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -138,8 +150,14 @@ const colliders = [];
 // Every torch in the level: { position, colour }
 const torches = [];
 
-// Everything the player can hit with a weapon (training dummies for now, enemies later)
+// Everything the player can hit with a weapon (training dummies and enemies)
 const targets = [];
+
+// Every enemy in the level
+const enemies = [];
+
+// Remembers the map so we can check "is there a wall here?" later
+let levelGrid = null;
 
 // ---------- Build a level from its text map ----------
 function buildLevel(level) {
@@ -152,6 +170,7 @@ function buildLevel(level) {
   const tileAt = (x, z) => (z < 0 || z >= rows || x < 0 || x >= cols) ? '#' : map[z][x];
   const isWall = (c) => c === '#' || c === 'T' || c === 'R';
   const centre = (x, z) => ({ x: x * T + T / 2, z: z * T + T / 2 });
+  levelGrid = { tileAt, isWall };
 
   // First, sort every square into walls, floors and pillars
   const wallTiles = [];
@@ -175,6 +194,12 @@ function buildLevel(level) {
           const p = centre(x, z);
           targets.push(createDummy(scene, p.x, p.z));
           colliders.push({ minX: p.x - 0.35, maxX: p.x + 0.35, minZ: p.z - 0.35, maxZ: p.z + 0.35 });
+        }
+        if (c === 'E') {
+          const p = centre(x, z);
+          const enemy = createEnemy(scene, 'ghoul', p.x, p.z, world);
+          enemies.push(enemy);
+          targets.push(enemy);
         }
       }
     }
@@ -260,6 +285,14 @@ function buildLevel(level) {
   document.getElementById('level-name').textContent = level.name;
 }
 
+// ---------- What enemies need to know about the world ----------
+const world = {
+  getPlayerPosition: () => camera.position,
+  canSee,
+  moveCircle,
+  damagePlayer: takeDamage,
+};
+
 buildLevel(LEVELS[0]);
 
 // ---------- Torch lights ----------
@@ -291,29 +324,26 @@ function updateTorchLights(time) {
 const controls = new PointerLockControls(camera, document.body);
 const overlay = document.getElementById('overlay');
 
-overlay.addEventListener('click', () => controls.lock());
+overlay.addEventListener('click', () => { if (!player.dead) controls.lock(); });
 controls.addEventListener('lock', () => overlay.classList.add('hidden'));
-controls.addEventListener('unlock', () => overlay.classList.remove('hidden'));
+controls.addEventListener('unlock', () => {
+  if (!player.dead) overlay.classList.remove('hidden');
+});
 
 // ---------- Keyboard ----------
 const keys = {};
 // Left mouse button = light attack
 window.addEventListener('mousedown', (e) => {
-  if (e.button === 0 && controls.isLocked) combat.attack();
+  if (e.button === 0 && controls.isLocked && !player.dead) combat.attack();
 });
 
-window.addEventListener('keydown', (e) => {
-  keys[e.code] = true;
-  // TEST ONLY: press K to hurt yourself, so we can check the health bar works.
-  // Remove this once there are enemies.
-  if (e.code === 'KeyK' && !e.repeat && controls.isLocked) takeDamage(10);
-});
+window.addEventListener('keydown', (e) => { keys[e.code] = true; });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
 // ---------- Collision ----------
-// Treats the player as a circle on the ground and pushes it out of any box it overlaps.
-function resolveCollisions(pos) {
-  const r = SETTINGS.playerRadius;
+// Treats a person (player or enemy) as a circle on the ground,
+// and pushes it out of any box it overlaps.
+function resolveCollisions(pos, r = SETTINGS.playerRadius) {
   for (const box of colliders) {
     // Closest point on the box to the player's centre
     const cx = Math.max(box.minX, Math.min(pos.x, box.maxX));
@@ -344,6 +374,57 @@ function resolveCollisions(pos) {
   }
 }
 
+// Moves a circle by (dx, dz) in small slices so it can't skip through a wall
+function moveCircle(pos, dx, dz, radius) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (radius / 2)));
+  for (let i = 0; i < steps; i++) {
+    pos.x += dx / steps;
+    pos.z += dz / steps;
+    resolveCollisions(pos, radius);
+  }
+}
+
+// Is there a clear line (no walls) between two points? Checks the map every 25 cm.
+function canSee(from, to) {
+  const T = SETTINGS.tileSize;
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const steps = Math.ceil(Math.hypot(dx, dz) / 0.25);
+  for (let i = 1; i < steps; i++) {
+    const x = from.x + (dx * i) / steps;
+    const z = from.z + (dz * i) / steps;
+    if (levelGrid.isWall(levelGrid.tileAt(Math.floor(x / T), Math.floor(z / T)))) return false;
+  }
+  return true;
+}
+
+// Stops people overlapping: pushes enemies apart from each other, and the player out of enemies
+function separatePeople() {
+  const living = enemies.filter((e) => e.alive);
+  for (let i = 0; i < living.length; i++) {
+    for (let j = i + 1; j < living.length; j++) {
+      pushApart(living[i].feet, living[i].radius, living[j].feet, living[j].radius, 0.5);
+    }
+    // The player gets pushed fully out (enemies don't get shoved around by walking into them)
+    pushApart(camera.position, SETTINGS.playerRadius, living[i].feet, living[i].radius, 1);
+  }
+}
+
+// Pushes two circles apart. share = how much of the push the first one takes (0..1).
+function pushApart(a, ra, b, rb, share) {
+  const dx = a.x - b.x;
+  const dz = a.z - b.z;
+  const dist = Math.hypot(dx, dz);
+  const overlap = ra + rb - dist;
+  if (overlap <= 0 || dist < 0.0001) return;
+  const nx = dx / dist;
+  const nz = dz / dist;
+  a.x += nx * overlap * share;
+  a.z += nz * overlap * share;
+  b.x -= nx * overlap * (1 - share);
+  b.z -= nz * overlap * (1 - share);
+}
+
 // ---------- Movement ----------
 const forward = new THREE.Vector3();
 const right = new THREE.Vector3();
@@ -351,7 +432,7 @@ const move = new THREE.Vector3();
 
 // Returns how fast we're moving: 0 = standing still, 1 = walking, more = running
 function updateMovement(dt) {
-  if (!controls.isLocked) return 0;
+  if (!controls.isLocked || player.dead) return 0;
 
   // Which way is the camera facing (flattened so looking up/down doesn't change speed)
   camera.getWorldDirection(forward);
@@ -375,12 +456,7 @@ function updateMovement(dt) {
   // Move in small slices so a big step (e.g. on a slow computer) can't skip through a wall
   const startX = camera.position.x;
   const startZ = camera.position.z;
-  const steps = Math.ceil(move.length() / (SETTINGS.playerRadius / 2));
-  for (let i = 0; i < steps; i++) {
-    camera.position.x += move.x / steps;
-    camera.position.z += move.z / steps;
-    resolveCollisions(camera.position);
-  }
+  moveCircle(camera.position, move.x, move.z, SETTINGS.playerRadius);
 
   // Running only costs stamina if you actually got somewhere (not when pushing into a wall)
   const moved = Math.hypot(camera.position.x - startX, camera.position.z - startZ);
@@ -391,7 +467,8 @@ function updateMovement(dt) {
 // ---------- Combat ----------
 const combat = createCombat({
   camera,
-  getTargets: () => targets,
+  getTargets: () => targets.filter((t) => t.alive !== false),
+  canSee,
   useStamina,
   getStamina: () => player.stamina,
   // Show a floating damage number where the target is on screen
@@ -412,11 +489,22 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1); // cap so a lag spike can't teleport you through walls
 
   const moveAmount = updateMovement(dt);
-  if (controls.isLocked) {
+  if (controls.isLocked && !player.dead) {
     updateStamina(dt);
     combat.update(dt, moveAmount);
+    for (const enemy of enemies) enemy.update(dt, camera);
+    separatePeople();
+    resolveCollisions(camera.position); // in case an enemy pushed us into a wall
   }
-  targets.forEach((target) => target.update(dt));
+  for (const dummy of targets) if (!enemies.includes(dummy)) dummy.update(dt);
+
+  // Forget enemies whose bodies have fully disappeared
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    if (enemies[i].removed) {
+      targets.splice(targets.indexOf(enemies[i]), 1);
+      enemies.splice(i, 1);
+    }
+  }
   updateHUD(player, dt);
   updateTorchLights(clock.elapsedTime);
 

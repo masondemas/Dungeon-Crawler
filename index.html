@@ -138,6 +138,22 @@
       to   { opacity: 0; margin-top: -50px; }
     }
 
+    /* "You died" screen */
+    #death-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(rgba(60, 0, 0, 0.6), rgba(0, 0, 0, 0.92));
+      cursor: pointer;
+      text-align: center;
+    }
+    #death-screen h1 { margin: 0 0 12px; font-size: 52px; letter-spacing: 4px; color: #c8322a; }
+    #death-screen p  { margin: 4px; font-size: 18px; }
+    #death-screen.hidden { display: none; }
+
     #overlay h1 { margin: 0 0 12px; font-size: 42px; letter-spacing: 2px; }
     #overlay p  { margin: 4px; font-size: 18px; }
     #overlay.hidden { display: none; }
@@ -149,8 +165,7 @@
 
   <div id="hint">
     <b>W A S D</b> move &nbsp;·&nbsp; <b>Mouse</b> look &nbsp;·&nbsp; <b>Shift</b> run<br>
-    <b>Left click</b> attack &nbsp;·&nbsp; <b>Esc</b> release mouse<br>
-    <span style="opacity:0.6"><b>K</b> hurt yourself (test only)</span>
+    <b>Left click</b> attack &nbsp;·&nbsp; <b>Esc</b> release mouse
   </div>
 
   <div id="hurt-flash"></div>
@@ -158,6 +173,11 @@
   <div id="bars">
     <div class="bar" id="health-bar"><div class="ghost"></div><div class="fill"></div><div class="label"></div></div>
     <div class="bar" id="stamina-bar"><div class="ghost"></div><div class="fill"></div><div class="label"></div></div>
+  </div>
+
+  <div id="death-screen" class="hidden">
+    <h1>YOU DIED</h1>
+    <p>Click to try again</p>
   </div>
 
   <div id="overlay">
@@ -177,14 +197,15 @@
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "./levels.js": "./levels.js?v=4",
-        "./hud.js": "./hud.js?v=4",
-        "./weapons.js": "./weapons.js?v=4",
-        "./combat.js": "./combat.js?v=4",
-        "./dummies.js": "./dummies.js?v=4"
+        "./levels.js": "./levels.js?v=5",
+        "./hud.js": "./hud.js?v=5",
+        "./weapons.js": "./weapons.js?v=5",
+        "./combat.js": "./combat.js?v=5",
+        "./dummies.js": "./dummies.js?v=5",
+        "./enemies.js": "./enemies.js?v=5"
       }
     }
   </script>
-  <script type="module" src="game.js?v=4"></script>
+  <script type="module" src="game.js?v=5"></script>
 </body>
 </html>

@@ -15,6 +15,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 | `weapons.js` | Weapon stats (data only) and the low-poly weapon models |
 | `combat.js` | Weapon in your hand, swing animation, hit detection |
 | `dummies.js` | Training dummies (practice targets) |
+| `enemies.js` | Enemy stats (data only), enemy models and behaviour |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
 | `README.md` | Short intro + how to play |
@@ -105,13 +106,33 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   so browsers download fresh files after each update. **Bump this number with every
   update** (all lines in the import map plus the `game.js` script tag).
 
+### Step 5: The first enemy (Ghoul) ✅
+- Map letter `E` places a Ghoul: a hunched, low-poly green figure with glowing eyes.
+- Enemy stats are **data** in `enemies.js` (`ENEMY_TYPES`): Ghoul has 45 health,
+  12 damage, 2.6 m/s speed, 1.7 m attack range, 0.65 s wind-up and 1 s rest after attacking.
+- Behaviour (states): **idle** until it sees you (within 16 m, no wall between you)
+  → **chase** (walks to where it last saw you, gives up if it loses you) → **wind-up**
+  (raises arms, your warning) → **strike** (lunges and slashes; it hits only if you're
+  still close and in front of it) → **recover** → chase again.
+- Hitting an enemy: red flash, flinch, small shove back, floating damage number,
+  and a health bar over its head. Hitting an idle enemy wakes it up.
+- 3 sword hits kill a Ghoul. It falls over, sinks into the floor and is removed.
+- Enemies and the player can't walk through each other. Enemies also keep
+  apart from each other.
+- Line-of-sight check (`canSee`) uses the map. Enemies can't see through walls,
+  and your sword no longer hits through wall corners (fixed known issue).
+- **Death:** at 0 health a "YOU DIED" screen appears; click to restart (reloads the page).
+- The K "hurt yourself" test key was removed.
+- Level 1 has 4 Ghouls: one in the pillar hall, two in the side room, one in the
+  winding corridor. The boss room is still empty.
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
 2. ~~Level layout: several rooms joined by corridors, built from a text map~~ ✅
 3. ~~Player stats + HUD: health bar and stamina bar~~ ✅
 4. ~~First-person weapon in view, plus the light attack (swing + hit detection)~~ ✅
-5. A basic enemy: placeholder shape that chases you, attacks, takes damage and dies.
+5. ~~A basic enemy: placeholder shape that chases you, attacks, takes damage and dies~~ ✅
    **Then:** place enemies around Level 1, playtest, and grow the level until a
    run takes 10–12 minutes (more rooms, plus `tileSize` if rooms feel cramped).
 6. Power attack (hold to charge) and blocking, both using stamina.
@@ -137,9 +158,11 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - If a map row has the wrong length, the game shows a warning in the browser
   console (F12), and the level may look broken.
 - Walls are all the same height and there are no doors yet.
-- Health never refills yet (regen is step 9), and reaching 0 health does
-  nothing yet (death screen is step 11). Reload the page to reset.
-- The K "hurt yourself" key is a temporary test tool.
-- Attacks can hit through a thin wall corner if a target is within reach on the
-  other side. That's rare with dummies. Revisit when enemies exist (line-of-sight check).
+- Health never refills yet (regen is step 9). The death screen is basic and
+  restarts by reloading the page (proper menus are step 11).
+- Enemies have no real pathfinding. They walk straight towards where they last
+  saw you, so if you break line of sight around a corner they may lose you.
+  Fine for now; smarter pathfinding can come later if it feels too easy.
+- Your hits don't interrupt an enemy's attack (maces will stagger in step 7).
+- An enemy pressed right up against you can poke an arm through the camera.
 - No sounds yet (step 12).

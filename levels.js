@@ -10,6 +10,7 @@
 //   T  wall with a torch on it (torch faces the nearest floor)
 //   R  wall with a red torch on it (used for the boss room)
 //   D  floor with a training dummy on it (something to practise hitting)
+//   E  floor with an enemy (a Ghoul) on it
 //
 // Rows go from north (top) to south (bottom). All rows must be the same length.
 // To make a new level, copy one of these, change the map, and add it to the list.
@@ -27,18 +28,18 @@ export const LEVELS = [
       '#......#####...D.....T##',
       '#....D.#####.........###',
       '############..P...P..###',
-      '###########T.........###',
+      '###########T.......E.###',
       '############.........###',
       '################..######',
       '################..######',
       '################..######',
       '################..######',
-      '#############.........##',
+      '#############......E..##',
       '#########T###.........##',
       '######................T#',
-      '######................##',
+      '######..E.............##',
       '######..#####.........##',
-      '######..#####.........##',
+      '######..#####..E......##',
       '######..#####T#######T##',
       '#####R..####R###########',
       '##..............########',
