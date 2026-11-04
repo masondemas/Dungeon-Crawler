@@ -165,4 +165,21 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   Fine for now; smarter pathfinding can come later if it feels too easy.
 - Your hits don't interrupt an enemy's attack (maces will stagger in step 7).
 - An enemy pressed right up against you can poke an arm through the camera.
+
+## Playtest feedback
+
+- **Step 5:** Ghouls feel **extremely easy**. Keep them as the starting point,
+  then make them tougher when we tune Level 1 (ideas: more health, faster,
+  shorter wind-up, attacking in groups, tougher enemy types later on).
+
+## Graphics plan
+
+- **Gameplay first, then graphics.** Don't make art while the combat and enemies are still changing.
+- **When:** a full graphics pass after step 10, once there's a complete
+  playable level (enemies, combat, potions, boss).
+- **Before that:** small looks-related fixes are fine if something is ugly or
+  hard to read during play.
+- **Ideas for the pass:** better low-poly models for weapons, enemies and props;
+  hand-made textures; dungeon dressing (bones, barrels, chains, rubble);
+  better lighting (shadows, light shafts, dust); hit effects (sparks, blood).
 - No sounds yet (step 12).
