@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { buildWeaponModel } from './weapons.js';
 import { buildShieldModel } from './equipment.js';
+import { buildPotionModel } from './pickups.js';
 
 // ---------- Weapon poses ----------
 // Where the weapon sits on screen at each moment.
@@ -62,6 +63,17 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
   let shieldModel = null;
   let shieldRaise = 1; // 0 = lowered out of view, 1 = in hand (animates when switching)
 
+  // Potion bottle (only visible while drinking)
+  const potionHolder = new THREE.Group();
+  const potionModel = buildPotionModel();
+  potionModel.scale.setScalar(0.9);
+  potionHolder.add(potionModel);
+  potionHolder.visible = false;
+  weaponScene.add(potionHolder);
+  let drinkTime = 0;       // how long we've been drinking
+  let drinkDuration = 0;   // 0 = not drinking
+  let onDrinkDone = null;
+
   let weapon = null;
   let model = null;
 
@@ -103,6 +115,18 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
     if (shield) return { reduction: shield.blockReduction, staminaPerDamage: shield.blockStaminaPerDamage, arc: shield.blockArc };
     return { reduction: weapon.blockReduction, staminaPerDamage: weapon.blockStaminaPerDamage, arc: defaultArc };
   }
+
+  // Start drinking a potion. onDone() runs when the drink is finished.
+  function drink(duration, onDone) {
+    if (drinkDuration > 0 || phase !== 'ready') return false;
+    drinkDuration = duration;
+    drinkTime = 0;
+    onDrinkDone = onDone;
+    attackHeld = false;
+    queued = false;
+    return true;
+  }
+  const isDrinking = () => drinkDuration > 0;
 
   // ----- State -----
   // phase: 'ready' | 'windup' | 'charging' | 'strike' | 'recover' | 'swapOut' | 'swapIn'
@@ -151,7 +175,7 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
   // ----- Input (called from game.js) -----
   function pressAttack() {
     attackHeld = true;
-    if (!weapon || blockHeld) return;                       // can't attack while holding block
+    if (!weapon || blockHeld || isDrinking()) return;       // can't attack while blocking or drinking
     if (phase === 'ready') startAttack();
     else if (phase === 'recover' || phase === 'strike') queued = true; // chain the next swing
     // (clicks while switching weapons are ignored)
@@ -219,7 +243,7 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
 
     // Raise or lower the block (only when not in the middle of an attack)
     if (phase !== 'ready') blockAmount = 0; // attacking drops the guard straight away
-    const blockTarget = blockHeld && phase === 'ready' ? 1 : 0;
+    const blockTarget = blockHeld && phase === 'ready' && !isDrinking() ? 1 : 0;
     const blockStep = dt / 0.12; // takes 0.12 seconds to raise fully
     blockAmount += Math.max(-blockStep, Math.min(blockStep, blockTarget - blockAmount));
 
@@ -283,12 +307,34 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
       quat.multiply(tmpQuat.setFromEuler(tmpEuler.set(impact * 0.3, 0, 0)));
     }
 
+    // ----- Drinking a potion -----
+    // The bottle comes up from below, tips towards your mouth, then drops away.
+    let shieldDown = 0;
+    if (isDrinking()) {
+      drinkTime += dt;
+      const t = Math.min(drinkTime / drinkDuration, 1);
+      const up = Math.min(t / 0.25, 1);              // first quarter: lift
+      const down = Math.max((t - 0.8) / 0.2, 0);     // last fifth: lower
+      const raise = easeOut(up) * (1 - easeInOut(down));
+      potionHolder.visible = true;
+      const tip = Math.min(1, Math.max(0, (t - 0.15) / 0.3)); // tip it towards your mouth
+      potionHolder.position.set(-0.05 + 0.12 * (1 - raise), -0.7 + 0.5 * raise, -0.45);
+      potionHolder.rotation.set(raise * tip * 1.1, 0, 0.35 - tip * 0.15);
+      potionHolder.position.y += Math.sin(drinkTime * 20) * 0.004 * raise; // gulp
+      shieldDown = raise;
+      if (t >= 1) {
+        drinkDuration = 0;
+        potionHolder.visible = false;
+        if (onDrinkDone) onDrinkDone();
+      }
+    }
+
     // ----- Shield -----
     if (shield) {
       shieldRaise = Math.min(1, shieldRaise + dt / 0.25);
       const sPos = new THREE.Vector3().lerpVectors(ST.rest.pos, ST.block.pos, easeInOut(blockAmount));
       const sQuat = new THREE.Quaternion().slerpQuaternions(ST.rest.quat, ST.block.quat, easeInOut(blockAmount));
-      sPos.lerpVectors(ST.lowered.pos, sPos, easeOut(shieldRaise));
+      sPos.lerpVectors(ST.lowered.pos, sPos, easeOut(shieldRaise) * (1 - shieldDown)); // drops while drinking
       if (impact > 0) { sPos.z += impact * 0.07; sPos.y -= impact * 0.03; }
       // Bob with your steps (a little out of time with the weapon)
       const sBob = blockAmount > 0.5 ? 0.3 : 1;
@@ -325,6 +371,8 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
     equipShield,
     getShield: () => shield,
     getBlockStats,
+    drink,
+    isDrinking,
     pressAttack,
     releaseAttack,
     setBlock,

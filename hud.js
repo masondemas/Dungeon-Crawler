@@ -20,6 +20,8 @@ function findBar(id) {
 const healthBar = findBar('health-bar');
 const staminaBar = findBar('stamina-bar');
 const hurtFlash = document.getElementById('hurt-flash');
+const potionBox = document.getElementById('potions');
+const potionCount = document.getElementById('potion-count');
 let flashAmount = 0;
 
 function updateBar(bar, value, max, dt) {
@@ -45,6 +47,9 @@ export function updateHUD(player, dt) {
   updateBar(healthBar, player.health, player.maxHealth, dt);
   updateBar(staminaBar, player.stamina, player.maxStamina, dt);
   staminaBar.el.classList.toggle('winded', player.winded);
+  healthBar.el.classList.toggle('regen', !!player.regenerating);
+  potionCount.textContent = player.potions;
+  potionBox.classList.toggle('empty', player.potions === 0);
 
   // Fade out the red hurt flash
   flashAmount = Math.max(0, flashAmount - dt * 2);

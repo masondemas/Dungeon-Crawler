@@ -16,6 +16,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 | `combat.js` | Weapon in your hand, swing animation, hit detection |
 | `dummies.js` | Training dummies (practice targets) |
 | `equipment.js` | Shield and armor stats (data only) and shield models |
+| `pickups.js` | Things you pick up by walking over them (healing potions) and the potion model |
 | `enemies.js` | Enemy stats (data only), enemy models and behaviour |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
@@ -196,6 +197,23 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - **Test keys** (until pickups or classes): **Q** cycles shields (none → wooden →
   iron), **X** cycles armor (none → leather → chainmail → plate).
 
+### Step 9: Healing potions and health regeneration ✅
+- **Potions:** you start with 2. Press **R** to drink: it takes 1.1 s (the shield
+  lowers and you lift the bottle), then heals **+40**.
+  - While drinking: 50% walk speed, no running, attacking or blocking, so
+    drinking mid-fight is risky.
+  - The potion is used up when you start drinking. You can't drink at full health.
+  - The counter shows next to the health bar (`R 🧪 2`).
+- **Potion pickups:** map letter `H`, a floating, spinning red bottle with a
+  glow on the floor. Walk over it to collect (+1 potion). Level 1 has 3: pillar
+  hall corner, side room corner, and the corridor just before the boss room.
+  This is the first pickup; weapons and armor can use the same system later.
+- **Health regen:** after **5 s** without taking damage, health refills at
+  **3 per second**. Any damage resets the wait. The health bar glows while
+  regenerating.
+- Numbers in `PLAYER_STATS` (`startingPotions`, `potionHeal`, `potionDrinkTime`,
+  `drinkMoveSpeed`, `regenDelay`, `regenPerSecond`).
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
@@ -208,7 +226,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 6. ~~Power attack (hold to charge) and blocking, both using stamina~~ ✅
 7. ~~Weapon data table (dagger / sword / axe / mace) and stagger from maces~~ ✅
 8. ~~Shields and armor~~ ✅
-9. Healing potions (hotkey + drink delay) and health regen after 5 s.
+9. ~~Healing potions (hotkey + drink delay) and health regen after 5 s~~ ✅
 10. Boss room at the end of the level, then the next level with harder enemies.
 11. Menus: start, death/restart, level complete.
 12. Polish: sounds, better low-poly models, lighting tweaks.

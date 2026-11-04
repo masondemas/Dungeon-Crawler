@@ -1,5 +1,5 @@
 // =============================================================
-//  Dungeon Crawler - Step 8: shields and armor
+//  Dungeon Crawler - Step 9: healing potions and health regeneration
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -10,6 +10,7 @@ import { SHIELDS, SHIELD_KEYS, ARMOR, ARMOR_KEYS } from './equipment.js';
 import { createCombat } from './combat.js';
 import { createDummy } from './dummies.js';
 import { createEnemy } from './enemies.js';
+import { createPickup } from './pickups.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -35,6 +36,12 @@ const PLAYER_STATS = {
   guardBreakTime: 1.2,       // seconds you can't block after your guard is broken
   blockMoveSpeed: 0.55,      // walking speed multiplier while blocking
   chargeMoveSpeed: 0.6,      // walking speed multiplier while charging a power attack
+  startingPotions: 2,
+  potionHeal: 40,            // health one potion gives back
+  potionDrinkTime: 1.1,      // seconds it takes to drink (you're open to attack meanwhile!)
+  drinkMoveSpeed: 0.5,       // walking speed multiplier while drinking
+  regenDelay: 5,             // seconds without taking damage before health starts coming back
+  regenPerSecond: 3,         // health regained each second after that
 };
 
 // The player's current numbers. These change as you play.
@@ -48,6 +55,8 @@ const player = {
   dead: false,
   guardBrokenTimer: 0,  // counts down; you can't block until it reaches 0
   armor: ARMOR.leather, // what you're wearing (see equipment.js)
+  potions: PLAYER_STATS.startingPotions,
+  timeSinceHit: 999,    // seconds since we last took damage (for health regen)
 };
 
 // Use up some stamina (later: attacks, power attacks and blocking will use this too)
@@ -72,6 +81,7 @@ function updateStamina(dt) {
 function takeDamage(amount, { quiet = false } = {}) {
   if (player.dead || amount <= 0) return;
   player.health = Math.max(0, player.health - amount);
+  player.timeSinceHit = 0; // getting hurt resets the health regen wait
   if (!quiet) flashHurt();
   if (player.health === 0) playerDies();
 }
@@ -115,6 +125,27 @@ function receiveEnemyAttack(amount, attacker) {
 // Armor takes a share off every hit
 function applyArmor(amount) {
   return Math.round(amount * (1 - player.armor.damageReduction));
+}
+
+// ---------- Healing ----------
+function drinkPotion() {
+  if (player.potions <= 0) { showMessage('No potions', '#c9a0a0'); return; }
+  if (player.health >= player.maxHealth) { showMessage('Health is full'); return; }
+  const started = combat.drink(PLAYER_STATS.potionDrinkTime, () => {
+    const before = player.health;
+    player.health = Math.min(player.maxHealth, player.health + PLAYER_STATS.potionHeal);
+    showMessage(`+${Math.round(player.health - before)} health`, '#8fe08a');
+  });
+  if (started) player.potions -= 1; // the potion is used up as soon as you start drinking
+}
+
+// Slowly get health back after a few seconds without being hurt
+function updateRegen(dt) {
+  player.timeSinceHit += dt;
+  player.regenerating = player.timeSinceHit >= PLAYER_STATS.regenDelay && player.health < player.maxHealth;
+  if (player.regenerating) {
+    player.health = Math.min(player.maxHealth, player.health + PLAYER_STATS.regenPerSecond * dt);
+  }
 }
 
 // Very simple death for now (a proper death/restart menu comes later)
@@ -206,6 +237,9 @@ const targets = [];
 // Every enemy in the level
 const enemies = [];
 
+// Things lying around to pick up (potions)
+const pickups = [];
+
 // Remembers the map so we can check "is there a wall here?" later
 let levelGrid = null;
 
@@ -244,6 +278,10 @@ function buildLevel(level) {
           const p = centre(x, z);
           targets.push(createDummy(scene, p.x, p.z));
           colliders.push({ minX: p.x - 0.35, maxX: p.x + 0.35, minZ: p.z - 0.35, maxZ: p.z + 0.35 });
+        }
+        if (c === 'H') {
+          const p = centre(x, z);
+          pickups.push(createPickup(scene, 'potion', p.x, p.z));
         }
         if (c === 'E') {
           const p = centre(x, z);
@@ -404,6 +442,8 @@ window.addEventListener('keydown', (e) => {
   // TEST KEYS until we have pickups or classes: Q cycles shields, X cycles armor
   if (e.code === 'KeyQ' && !e.repeat && controls.isLocked && !player.dead) cycleShield();
   if (e.code === 'KeyX' && !e.repeat && controls.isLocked && !player.dead) cycleArmor();
+  // R = drink a healing potion
+  if (e.code === 'KeyR' && !e.repeat && controls.isLocked && !player.dead) drinkPotion();
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
@@ -517,13 +557,14 @@ function updateMovement(dt) {
   // You can only run if you have stamina left and aren't winded
   // (and you can't run while blocking or charging a power attack)
   const wantsToRun = keys['ShiftLeft'] || keys['ShiftRight'];
-  const busy = combat.isGuarding() || combat.isCharging();
+  const busy = combat.isGuarding() || combat.isCharging() || combat.isDrinking();
   const running = wantsToRun && !busy && !player.winded && player.stamina > 0;
   let speed = running ? SETTINGS.runSpeed : SETTINGS.walkSpeed;
   // Heavy weapons, shields and armor slow you down a little
   speed *= combat.getWeapon().moveSpeed * (combat.getShield()?.moveSpeed ?? 1) * player.armor.moveSpeed;
   if (combat.isGuarding()) speed *= PLAYER_STATS.blockMoveSpeed;
   else if (combat.isCharging()) speed *= PLAYER_STATS.chargeMoveSpeed;
+  if (combat.isDrinking()) speed *= PLAYER_STATS.drinkMoveSpeed;
   move.normalize().multiplyScalar(speed * dt); // normalize = diagonal isn't faster
 
   // Move in small slices so a big step (e.g. on a slow computer) can't skip through a wall
@@ -599,6 +640,20 @@ function animate() {
     combat.update(dt, moveAmount);
     player.guardBrokenTimer = Math.max(0, player.guardBrokenTimer - dt);
     combat.setBlock(blockButtonHeld && player.guardBrokenTimer <= 0);
+    updateRegen(dt);
+
+    // Walk over a potion to pick it up
+    for (const pickup of pickups) {
+      if (pickup.collected) continue;
+      pickup.update(dt);
+      const dx = pickup.position.x - camera.position.x;
+      const dz = pickup.position.z - camera.position.z;
+      if (dx * dx + dz * dz < 0.9 * 0.9) {
+        pickup.collect();
+        player.potions += 1;
+        showMessage('Found a healing potion', '#ff8f8f');
+      }
+    }
     for (const enemy of enemies) enemy.update(dt, camera);
     separatePeople();
     resolveCollisions(camera.position); // in case an enemy pushed us into a wall

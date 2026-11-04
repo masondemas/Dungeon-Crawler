@@ -113,6 +113,41 @@
     #health-bar .fill  { background: linear-gradient(#d4473b, #8e1f17); }
     #stamina-bar .fill { background: linear-gradient(#5fbf55, #2c7a26); }
     #stamina-bar.winded .fill { background: linear-gradient(#8a8f55, #50542c); }
+    /* Health bar glows softly while regenerating */
+    #health-bar.regen { animation: regen-glow 1.4s ease-in-out infinite; }
+    @keyframes regen-glow {
+      0%, 100% { box-shadow: 0 0 0 rgba(255, 120, 100, 0); }
+      50%      { box-shadow: 0 0 10px rgba(255, 120, 100, 0.8); }
+    }
+
+    /* Potion counter (left of the health bar) */
+    #potions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-right: -24px;
+      font-size: 14px;
+    }
+    #potions .bottle {
+      width: 12px;
+      height: 15px;
+      background: radial-gradient(circle at 40% 60%, #ff5a5a, #8e1219);
+      border-radius: 50% 50% 45% 45%;
+      border: 1px solid rgba(232, 220, 192, 0.6);
+      position: relative;
+    }
+    #potions .bottle::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: -6px;
+      width: 4px;
+      height: 6px;
+      background: #9a7650;
+      border-radius: 1px;
+    }
+    #potions .key { opacity: 0.55; font-size: 11px; }
+    #potions.empty { opacity: 0.4; }
 
     /* Red flash around the screen edges when hurt */
     #hurt-flash {
@@ -225,7 +260,8 @@
     <b>W A S D</b> move &nbsp;·&nbsp; <b>Mouse</b> look &nbsp;·&nbsp; <b>Shift</b> run<br>
     <b>Left click</b> attack &nbsp;·&nbsp; <b>Hold left click</b> power attack<br>
     <b>Hold right click</b> block &nbsp;·&nbsp; <b>1 – 4</b> switch weapon<br>
-    <b>Q</b> switch shield &nbsp;·&nbsp; <b>X</b> switch armor (test keys) &nbsp;·&nbsp; <b>Esc</b> release mouse
+    <b>R</b> drink potion &nbsp;·&nbsp; <b>Q</b> shield / <b>X</b> armor (test keys)<br>
+    <b>Esc</b> release mouse
   </div>
 
   <div id="hurt-flash"></div>
@@ -235,6 +271,7 @@
   <div id="weapon-panel"></div>
 
   <div id="bars">
+    <div id="potions"><span class="key">R</span><div class="bottle"></div><span id="potion-count">0</span></div>
     <div class="bar" id="health-bar"><div class="ghost"></div><div class="fill"></div><div class="label"></div></div>
     <div class="bar" id="stamina-bar"><div class="ghost"></div><div class="fill"></div><div class="label"></div></div>
   </div>
@@ -249,7 +286,7 @@
     <p>Click to play</p>
     <p style="opacity:0.7">W A S D to move · Mouse to look · Shift to run · Esc to pause</p>
     <p style="opacity:0.7">Left click to attack · Hold left click to power attack · Hold right click to block</p>
-    <p style="opacity:0.7">1 – 4 to switch weapon (dagger, sword, axe, mace) · Q shield · X armor</p>
+    <p style="opacity:0.7">1 – 4 to switch weapon (dagger, sword, axe, mace) · Q shield · X armor · R drink potion</p>
   </div>
 
   <!--
@@ -263,16 +300,17 @@
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "./levels.js": "./levels.js?v=8",
-        "./hud.js": "./hud.js?v=8",
-        "./weapons.js": "./weapons.js?v=8",
-        "./combat.js": "./combat.js?v=8",
-        "./dummies.js": "./dummies.js?v=8",
-        "./enemies.js": "./enemies.js?v=8",
-        "./equipment.js": "./equipment.js?v=8"
+        "./levels.js": "./levels.js?v=9",
+        "./hud.js": "./hud.js?v=9",
+        "./weapons.js": "./weapons.js?v=9",
+        "./combat.js": "./combat.js?v=9",
+        "./dummies.js": "./dummies.js?v=9",
+        "./enemies.js": "./enemies.js?v=9",
+        "./equipment.js": "./equipment.js?v=9",
+        "./pickups.js": "./pickups.js?v=9"
       }
     }
   </script>
-  <script type="module" src="game.js?v=8"></script>
+  <script type="module" src="game.js?v=9"></script>
 </body>
 </html>
