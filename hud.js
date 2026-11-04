@@ -141,3 +141,19 @@ export function setWeaponPanel(allWeapons, current, shield, armor) {
   gear.innerHTML = `<span>Q</span> ${shield ? shield.name : 'No Shield'}<br><span>X</span> ${armorText}`;
   weaponPanel.appendChild(gear);
 }
+
+// ---------- Boss health bar (top of the screen) ----------
+const bossBar = document.getElementById('boss-bar');
+const bossName = bossBar.querySelector('.boss-name');
+const bossFill = bossBar.querySelector('.fill');
+
+// boss = the boss enemy, or null to hide the bar
+export function setBossBar(boss) {
+  // (the controls hint hides during boss fights to make room for the bar)
+  document.body.classList.toggle('boss-fight', !!boss);
+  if (!boss) { bossBar.classList.add('hidden'); return; }
+  bossBar.classList.remove('hidden');
+  bossName.textContent = boss.type.name + (boss.enraged ? ' (enraged)' : '');
+  bossFill.style.width = `${Math.max(0, boss.health / boss.maxHealth) * 100}%`;
+  bossBar.classList.toggle('enraged', boss.enraged);
+}

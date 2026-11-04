@@ -231,6 +231,47 @@
       to   { opacity: 0; margin-top: -50px; }
     }
 
+    /* Boss health bar (top centre) */
+    #boss-bar {
+      position: fixed;
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(520px, 70vw);
+      text-align: center;
+      pointer-events: none;
+    }
+    #boss-bar.hidden { display: none; }
+    body.boss-fight #hint { display: none; }
+    #boss-bar .boss-name { font-size: 18px; letter-spacing: 2px; margin-bottom: 4px; text-shadow: 0 0 6px #000; }
+    #boss-bar .track {
+      height: 12px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(232, 220, 192, 0.5);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    #boss-bar .fill { height: 100%; width: 100%; background: linear-gradient(#b8312a, #6d140e); transition: width 0.2s; }
+    #boss-bar.enraged .fill { background: linear-gradient(#ff5a2a, #a4210e); }
+    #boss-bar.enraged .boss-name { color: #ff8a5a; }
+
+    /* "Level complete" / "Victory" screen */
+    #level-complete {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(rgba(20, 50, 60, 0.6), rgba(0, 0, 0, 0.92));
+      cursor: pointer;
+      text-align: center;
+    }
+    #level-complete.hidden { display: none; }
+    #level-complete h1 { margin: 0 0 10px; font-size: 48px; letter-spacing: 4px; color: #9fe8ff; }
+    #level-complete p { margin: 6px; font-size: 18px; }
+    #level-complete .next { margin-top: 22px; opacity: 0.8; }
+
     /* "You died" screen */
     #death-screen {
       position: fixed;
@@ -276,9 +317,21 @@
     <div class="bar" id="stamina-bar"><div class="ghost"></div><div class="fill"></div><div class="label"></div></div>
   </div>
 
+  <div id="boss-bar" class="hidden">
+    <div class="boss-name"></div>
+    <div class="track"><div class="fill"></div></div>
+  </div>
+
+  <div id="level-complete" class="hidden">
+    <h1>LEVEL COMPLETE</h1>
+    <p class="subtitle"></p>
+    <p class="stats"></p>
+    <p class="next"></p>
+  </div>
+
   <div id="death-screen" class="hidden">
     <h1>YOU DIED</h1>
-    <p>Click to try again</p>
+    <p>Click to try this level again</p>
   </div>
 
   <div id="overlay">
@@ -300,17 +353,18 @@
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "./levels.js": "./levels.js?v=9",
-        "./hud.js": "./hud.js?v=9",
-        "./weapons.js": "./weapons.js?v=9",
-        "./combat.js": "./combat.js?v=9",
-        "./dummies.js": "./dummies.js?v=9",
-        "./enemies.js": "./enemies.js?v=9",
-        "./equipment.js": "./equipment.js?v=9",
-        "./pickups.js": "./pickups.js?v=9"
+        "./levels.js": "./levels.js?v=10",
+        "./hud.js": "./hud.js?v=10",
+        "./weapons.js": "./weapons.js?v=10",
+        "./combat.js": "./combat.js?v=10",
+        "./dummies.js": "./dummies.js?v=10",
+        "./enemies.js": "./enemies.js?v=10",
+        "./equipment.js": "./equipment.js?v=10",
+        "./pickups.js": "./pickups.js?v=10",
+        "./progress.js": "./progress.js?v=10"
       }
     }
   </script>
-  <script type="module" src="game.js?v=9"></script>
+  <script type="module" src="game.js?v=10"></script>
 </body>
 </html>

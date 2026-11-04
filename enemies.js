@@ -12,24 +12,97 @@
 //   sightRange    how far away it can notice you (metres)
 //   turnSpeed     how fast it can turn to face you (radians per second)
 //   radius        how wide it is for collisions
+//   scale         how big the model is (1 = person-sized)
+//
+// Extra numbers only bosses use:
+//   isBoss              shows the big health bar at the top of the screen
+//   lightStaggerImmune  normal hits (even maces) can't stagger it, only power attacks
+//   staggerResistance   power-attack staggers are this much shorter (0.5 = half as long)
+//   knockback           how hard its hits shove you backwards (even through a block)
+//   enrage              below this share of health it gets faster and fiercer
 
 import * as THREE from 'three';
 
 export const ENEMY_TYPES = {
   ghoul: {
     name: 'Ghoul',
-    health: 45,
-    damage: 12,
-    speed: 2.6,
+    health: 60,
+    damage: 14,
+    speed: 3.0,
     attackRange: 1.7,
-    windup: 0.65,
-    recover: 1.0,
+    windup: 0.55,
+    recover: 0.8,
     sightRange: 16,
     turnSpeed: 5,
     radius: 0.4,
+    scale: 1,
     skinColour: 0x7d8c62,
     clothColour: 0x3b3328,
     eyeColour: 0xff5a1f,
+  },
+  skeleton: {
+    name: 'Skeleton',
+    health: 75,
+    damage: 16,
+    speed: 3.4,
+    attackRange: 1.8,
+    windup: 0.5,
+    recover: 0.7,
+    sightRange: 18,
+    turnSpeed: 6,
+    radius: 0.38,
+    scale: 1.05,
+    thin: true,
+    skinColour: 0xd8d0b8,
+    clothColour: 0x4a4038,
+    eyeColour: 0x6ad7ff,
+  },
+
+  // ----- Bosses -----
+  cryptLord: {
+    name: 'The Crypt Lord',
+    health: 450,
+    damage: 28,
+    speed: 2.4,
+    attackRange: 2.8,
+    windup: 0.85,
+    recover: 1.1,
+    sightRange: 30,
+    turnSpeed: 3,
+    radius: 0.8,
+    scale: 1.9,
+    horns: true,
+    skinColour: 0x5e6e48,
+    clothColour: 0x2a1f1a,
+    eyeColour: 0xff3010,
+    isBoss: true,
+    lightStaggerImmune: true,
+    staggerResistance: 0.5,
+    knockback: 7,
+    enrage: { at: 0.5, speed: 1.35, windup: 0.75, recover: 0.6 },
+  },
+  boneColossus: {
+    name: 'The Bone Colossus',
+    health: 520,
+    damage: 30,
+    speed: 2.7,
+    attackRange: 3.0,
+    windup: 0.8,
+    recover: 1.0,
+    sightRange: 30,
+    turnSpeed: 3.4,
+    radius: 0.85,
+    scale: 2.1,
+    thin: true,
+    horns: true,
+    skinColour: 0xcfc6ab,
+    clothColour: 0x3a3029,
+    eyeColour: 0x58c8ff,
+    isBoss: true,
+    lightStaggerImmune: true,
+    staggerResistance: 0.5,
+    knockback: 8,
+    enrage: { at: 0.5, speed: 1.35, windup: 0.75, recover: 0.6 },
   },
 };
 
@@ -61,7 +134,7 @@ function buildModel(type) {
     return hip;
   });
 
-  const torso = box(0.52, 0.66, 0.32, cloth);
+  const torso = box(type.thin ? 0.42 : 0.52, 0.66, type.thin ? 0.24 : 0.32, cloth);
   torso.position.y = 1.14;
   torso.rotation.x = 0.18; // hunched forward
   body.add(torso);
@@ -70,6 +143,17 @@ function buildModel(type) {
   head.position.set(0, 1.6, 0.1);
   body.add(head);
 
+  // Horns (bosses)
+  if (type.horns) {
+    for (const side of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28, 5), cloth);
+      horn.position.set(side * 0.14, 1.78, 0.06);
+      horn.rotation.z = -side * 0.7;
+      horn.rotation.x = -0.3;
+      body.add(horn);
+    }
+  }
+
   for (const x of [-0.07, 0.07]) {
     const eye = box(0.05, 0.035, 0.03, eyes);
     eye.position.set(x, 1.63, 0.27);
@@ -77,10 +161,11 @@ function buildModel(type) {
   }
 
   // Arms swing from the shoulders
-  const arms = [-0.34, 0.34].map((x) => {
+  const armX = type.thin ? 0.29 : 0.34;
+  const arms = [-armX, armX].map((x) => {
     const shoulder = new THREE.Group();
     shoulder.position.set(x, 1.38, 0.05);
-    const arm = box(0.12, 0.72, 0.12, skin);
+    const arm = box(type.thin ? 0.08 : 0.12, 0.72, type.thin ? 0.08 : 0.12, skin);
     arm.position.y = -0.36;
     shoulder.add(arm);
     body.add(shoulder);
@@ -107,11 +192,16 @@ function buildHealthBar() {
 }
 
 // world = things the enemy needs to know about the game:
-//   getPlayerPosition(), canSee(from, to), moveCircle(pos, dx, dz, radius), damagePlayer(amount)
-export function createEnemy(scene, typeName, x, z, world) {
-  const type = ENEMY_TYPES[typeName];
+//   getPlayerPosition(), canSee(from, to), moveCircle(pos, dx, dz, radius),
+//   damagePlayer(amount, enemy), onEnemyKilled(enemy), announce(text)
+// difficulty = multiplies health and damage (later levels are harder)
+export function createEnemy(scene, typeName, x, z, world, difficulty = 1) {
+  // Each enemy gets its own copy of the stats, so enraging one boss doesn't change others
+  const base = ENEMY_TYPES[typeName];
+  const type = { ...base, health: Math.round(base.health * difficulty), damage: Math.round(base.damage * difficulty) };
   const model = buildModel(type);
   model.root.position.set(x, 0, z);
+  model.root.scale.setScalar(type.scale);
   const bar = buildHealthBar();
   bar.group.position.y = 2.05;
   model.root.add(bar.group);
@@ -122,8 +212,11 @@ export function createEnemy(scene, typeName, x, z, world) {
     alive: true,
     removed: false,         // true once the body has fully sunk away
     health: type.health,
+    maxHealth: type.health,
     radius: type.radius,
-    position: new THREE.Vector3(x, 1.2, z), // chest height: what the player aims at
+    isBoss: !!type.isBoss,
+    enraged: false,
+    position: new THREE.Vector3(x, 1.2 * type.scale, z), // chest height: what the player aims at
     feet: model.root.position,              // where it stands on the floor (moving this moves the enemy)
     state: 'idle',          // 'idle' | 'chase' | 'windup' | 'strike' | 'recover' | 'stagger' | 'dead'
     staggerTime: 0,         // how long the current stagger lasts
@@ -139,14 +232,18 @@ export function createEnemy(scene, typeName, x, z, world) {
       if (!this.alive) return;
       this.health -= damage;
       this.flash = 1;
-      this.knock.set(direction.x * 2.5, direction.z * 2.5); // small shove
-      bar.group.visible = true;
-      bar.fill.scale.x = Math.max(0, this.health / type.health);
+      const shove = 2.5 / type.scale; // big enemies barely move
+      this.knock.set(direction.x * shove, direction.z * shove);
+      if (!type.isBoss) bar.group.visible = true; // bosses use the big bar at the top instead
+      bar.fill.scale.x = Math.max(0, this.health / this.maxHealth);
       if (this.state === 'idle') this.setState('chase'); // hitting it wakes it up
       if (this.health <= 0) { this.die(); return; }
       // Knocked off balance? Power attacks always stagger. Light-hit staggers (maces)
       // don't work again straight away, so an enemy can't be stun-locked forever.
-      if (options.stagger && (options.forceStagger || this.staggerImmunity <= 0)) this.stagger(options.stagger);
+      // Bosses ignore light-hit staggers and shake off power staggers faster.
+      if (!options.stagger) return;
+      if (!options.forceStagger && (type.lightStaggerImmune || this.staggerImmunity > 0)) return;
+      this.stagger(options.stagger * (1 - (type.staggerResistance || 0)));
     },
 
     // Knocked off balance: can't move or attack for a moment (cancels an attack in progress)
@@ -167,6 +264,7 @@ export function createEnemy(scene, typeName, x, z, world) {
       this.alive = false;
       this.setState('dead');
       bar.group.visible = false;
+      world.onEnemyKilled(this);
     },
 
     setState(state) {
@@ -194,6 +292,15 @@ export function createEnemy(scene, typeName, x, z, world) {
       const dist = Math.hypot(dx, dz);
       const seesPlayer = dist < type.sightRange && world.canSee(root.position, player);
       if (seesPlayer) this.lastSeen = new THREE.Vector3(player.x, 0, player.z);
+
+      // Bosses get angry when badly hurt: faster, with quicker attacks
+      if (type.enrage && !this.enraged && this.health <= this.maxHealth * type.enrage.at) {
+        this.enraged = true;
+        type.speed *= type.enrage.speed;
+        type.windup *= type.enrage.windup;
+        type.recover *= type.enrage.recover;
+        world.announce(`${type.name} is enraged!`);
+      }
 
       let moving = false;
 
@@ -263,7 +370,7 @@ export function createEnemy(scene, typeName, x, z, world) {
 
       // ----- Animation -----
       root.rotation.y = this.facing;
-      this.position.set(root.position.x, 1.2, root.position.z);
+      this.position.set(root.position.x, 1.2 * type.scale, root.position.z);
 
       let armAngle = ARMS_REST;
       if (this.state === 'windup') armAngle = THREE.MathUtils.lerp(ARMS_REST, ARMS_RAISED, Math.min(this.stateTime / type.windup, 1));

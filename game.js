@@ -1,16 +1,17 @@
 // =============================================================
-//  Dungeon Crawler - Step 9: healing potions and health regeneration
+//  Dungeon Crawler - Step 10: bosses, level exits and a second level
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { LEVELS } from './levels.js';
-import { updateHUD, flashHurt, showDamageNumber, setCharge, showMessage, flashBlock, updateFlashes, setWeaponPanel } from './hud.js';
+import { updateHUD, flashHurt, showDamageNumber, setCharge, showMessage, flashBlock, updateFlashes, setWeaponPanel, setBossBar } from './hud.js';
 import { WEAPONS, WEAPON_KEYS } from './weapons.js';
 import { SHIELDS, SHIELD_KEYS, ARMOR, ARMOR_KEYS } from './equipment.js';
 import { createCombat } from './combat.js';
 import { createDummy } from './dummies.js';
 import { createEnemy } from './enemies.js';
-import { createPickup } from './pickups.js';
+import { createPickup, createExitPortal } from './pickups.js';
+import { loadProgress, saveProgress, clearProgress } from './progress.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -44,6 +45,15 @@ const PLAYER_STATS = {
   regenPerSecond: 3,         // health regained each second after that
 };
 
+// ---------- Which level are we playing? ----------
+// The level number is in the page address, e.g. index.html?level=2
+const levelNumber = Math.min(Math.max(parseInt(new URLSearchParams(location.search).get('level'), 10) || 1, 1), LEVELS.length);
+const currentLevel = LEVELS[levelNumber - 1];
+
+// Potions and gear carried over from the previous level (if any)
+const saved = loadProgress();
+const carried = saved && saved.level === levelNumber ? saved : null;
+
 // The player's current numbers. These change as you play.
 const player = {
   health: PLAYER_STATS.maxHealth,
@@ -54,8 +64,8 @@ const player = {
   winded: false,        // true after running out of stamina completely
   dead: false,
   guardBrokenTimer: 0,  // counts down; you can't block until it reaches 0
-  armor: ARMOR.leather, // what you're wearing (see equipment.js)
-  potions: PLAYER_STATS.startingPotions,
+  armor: ARMOR[carried?.armor] || ARMOR.leather, // what you're wearing (see equipment.js)
+  potions: carried ? carried.potions : PLAYER_STATS.startingPotions,
   timeSinceHit: 999,    // seconds since we last took damage (for health regen)
 };
 
@@ -86,6 +96,15 @@ function takeDamage(amount, { quiet = false } = {}) {
   if (player.health === 0) playerDies();
 }
 
+// Big enemies (bosses) shove you backwards when they hit you
+const knockback = new THREE.Vector2(0, 0);
+function knockPlayerBack(attacker, strength) {
+  const dx = camera.position.x - attacker.feet.x;
+  const dz = camera.position.z - attacker.feet.z;
+  const len = Math.hypot(dx, dz) || 1;
+  knockback.set((dx / len) * strength, (dz / len) * strength);
+}
+
 // An enemy's attack reached us. Blocking it (from the front, with enough stamina) reduces the damage.
 function receiveEnemyAttack(amount, attacker) {
   if (player.dead) return;
@@ -109,7 +128,8 @@ function receiveEnemyAttack(amount, attacker) {
         combat.blockImpact();
         flashBlock();
         showMessage('Blocked', '#cfe0ff');
-        attacker.recoil();
+        if (attacker.type.knockback) knockPlayerBack(attacker, attacker.type.knockback * 0.6);
+        else attacker.recoil(); // small enemies bounce off your block; bosses don't
         return;
       }
       // Not enough stamina: the guard breaks and the full hit gets through
@@ -120,6 +140,7 @@ function receiveEnemyAttack(amount, attacker) {
     }
   }
   takeDamage(applyArmor(amount));
+  if (attacker.type.knockback) knockPlayerBack(attacker, attacker.type.knockback);
 }
 
 // Armor takes a share off every hit
@@ -154,6 +175,7 @@ function playerDies() {
   document.getElementById('death-screen').classList.remove('hidden');
   controls.unlock();
 }
+// Clicking restarts this level (with the potions and gear you started it with)
 document.getElementById('death-screen').addEventListener('click', () => location.reload());
 
 // ---------- Basic setup: renderer, scene, camera ----------
@@ -240,6 +262,13 @@ const enemies = [];
 // Things lying around to pick up (potions)
 const pickups = [];
 
+// The level's boss and exit portal (if it has them)
+let boss = null;
+let exitPortal = null;
+
+// Stats for the "level complete" screen
+const levelStats = { time: 0, kills: 0, totalEnemies: 0 };
+
 // Remembers the map so we can check "is there a wall here?" later
 let levelGrid = null;
 
@@ -283,11 +312,22 @@ function buildLevel(level) {
           const p = centre(x, z);
           pickups.push(createPickup(scene, 'potion', p.x, p.z));
         }
-        if (c === 'E') {
+        // Enemies: E = Ghoul, K = Skeleton, B = this level's boss
+        const enemyType = { E: 'ghoul', K: 'skeleton', B: level.boss }[c];
+        if (enemyType) {
           const p = centre(x, z);
-          const enemy = createEnemy(scene, 'ghoul', p.x, p.z, world);
+          const enemy = createEnemy(scene, enemyType, p.x, p.z, world, level.difficulty);
           enemies.push(enemy);
           targets.push(enemy);
+          if (enemy.isBoss) boss = enemy;
+        }
+        if (c === 'X') {
+          const p = centre(x, z);
+          exitPortal = createExitPortal(scene, p.x, p.z);
+          // Stand the arch against the wall, with its doorway facing the room
+          const open = [[0, 1, 0], [0, -1, Math.PI], [1, 0, Math.PI / 2], [-1, 0, -Math.PI / 2]]
+            .find(([dx, dz]) => !isWall(tileAt(x + dx, z + dz)));
+          if (open) exitPortal.face(open[2]);
         }
       }
     }
@@ -371,6 +411,8 @@ function buildLevel(level) {
   camera.rotation.set(0, facing[level.startFacing] ?? 0, 0);
 
   document.getElementById('level-name').textContent = level.name;
+  levelStats.totalEnemies = enemies.length;
+  if (exitPortal && !boss) exitPortal.open(); // no boss? the exit is open from the start
 }
 
 // ---------- What enemies need to know about the world ----------
@@ -379,9 +421,18 @@ const world = {
   canSee,
   moveCircle,
   damagePlayer: receiveEnemyAttack,
+  announce: (text) => showMessage(text, '#ff7050'),
+  onEnemyKilled(enemy) {
+    levelStats.kills += 1;
+    if (enemy === boss) {
+      setBossBar(null);
+      showMessage(`${enemy.type.name} is defeated! The way forward is open.`, '#9fe8ff');
+      if (exitPortal) exitPortal.open();
+    }
+  },
 };
 
-buildLevel(LEVELS[0]);
+buildLevel(currentLevel);
 
 // ---------- Torch lights ----------
 // Lots of real lights would make the game slow, so we keep a small set of lights
@@ -412,10 +463,10 @@ function updateTorchLights(time) {
 const controls = new PointerLockControls(camera, document.body);
 const overlay = document.getElementById('overlay');
 
-overlay.addEventListener('click', () => { if (!player.dead) controls.lock(); });
+overlay.addEventListener('click', () => { if (!player.dead && !levelDone) controls.lock(); });
 controls.addEventListener('lock', () => overlay.classList.add('hidden'));
 controls.addEventListener('unlock', () => {
-  if (!player.dead) overlay.classList.remove('hidden');
+  if (!player.dead && !levelDone) overlay.classList.remove('hidden');
 });
 
 // ---------- Keyboard ----------
@@ -622,10 +673,53 @@ function cycleArmor() {
   showMessage(player.armor.name);
 }
 
-// Starting equipment
-combat.equip(WEAPONS.sword);
-combat.equipShield(SHIELDS.wooden);
+// Starting equipment (or what you carried from the previous level)
+combat.equip(WEAPONS[carried?.weapon] || WEAPONS.sword);
+combat.equipShield(carried ? SHIELDS[carried.shield] || null : SHIELDS.wooden);
 refreshEquipmentPanel();
+
+// Remember what we started this level with, so dying restarts the level the same way
+const keyOf = (table, item) => Object.keys(table).find((k) => table[k] === item) || null;
+function currentProgress(level) {
+  return {
+    level,
+    potions: player.potions,
+    weapon: keyOf(WEAPONS, combat.getWeapon()),
+    shield: keyOf(SHIELDS, combat.getShield()),
+    armor: keyOf(ARMOR, player.armor),
+  };
+}
+saveProgress(currentProgress(levelNumber));
+
+// ---------- Finishing a level ----------
+let levelDone = false;
+const formatTime = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+
+function completeLevel() {
+  levelDone = true;
+  controls.unlock();
+  const isLast = levelNumber === LEVELS.length;
+  const screen = document.getElementById('level-complete');
+  screen.querySelector('h1').textContent = isLast ? 'VICTORY' : 'LEVEL COMPLETE';
+  screen.querySelector('.subtitle').textContent = isLast
+    ? 'You have conquered every level of the dungeon!'
+    : `${currentLevel.name.replace(/^Level \d+: /, '')} is cleared.`;
+  screen.querySelector('.stats').innerHTML =
+    `Time: <b>${formatTime(levelStats.time)}</b> &nbsp;·&nbsp; Enemies defeated: <b>${levelStats.kills} / ${levelStats.totalEnemies}</b>`;
+  screen.querySelector('.next').textContent = isLast ? 'Click to play again from Level 1' : `Click to continue to Level ${levelNumber + 1}`;
+  screen.classList.remove('hidden');
+
+  if (!isLast) saveProgress(currentProgress(levelNumber + 1)); // carry potions and gear forward
+}
+
+document.getElementById('level-complete').addEventListener('click', () => {
+  if (levelNumber === LEVELS.length) {
+    clearProgress();
+    location.href = location.pathname + '?level=1';
+  } else {
+    location.href = location.pathname + `?level=${levelNumber + 1}`;
+  }
+});
 
 // ---------- Main loop ----------
 const clock = new THREE.Clock();
@@ -635,7 +729,8 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1); // cap so a lag spike can't teleport you through walls
 
   const moveAmount = updateMovement(dt);
-  if (controls.isLocked && !player.dead) {
+  if (controls.isLocked && !player.dead && !levelDone) {
+    levelStats.time += dt;
     updateStamina(dt);
     combat.update(dt, moveAmount);
     player.guardBrokenTimer = Math.max(0, player.guardBrokenTimer - dt);
@@ -656,6 +751,23 @@ function animate() {
     }
     for (const enemy of enemies) enemy.update(dt, camera);
     separatePeople();
+
+    // Being shoved back by a big hit
+    if (knockback.lengthSq() > 0.01) {
+      moveCircle(camera.position, knockback.x * dt, knockback.y * dt, SETTINGS.playerRadius);
+      knockback.multiplyScalar(Math.max(0, 1 - dt * 6));
+    }
+
+    // Boss health bar appears once the boss notices you
+    if (boss && boss.alive && boss.state !== 'idle') setBossBar(boss);
+
+    // Walk into the open exit to finish the level
+    if (exitPortal) {
+      exitPortal.update(dt);
+      const dx = exitPortal.position.x - camera.position.x;
+      const dz = exitPortal.position.z - camera.position.z;
+      if (exitPortal.isOpen && dx * dx + dz * dz < 1.2 * 1.2) completeLevel();
+    }
     resolveCollisions(camera.position); // in case an enemy pushed us into a wall
   }
   for (const dummy of targets) if (!enemies.includes(dummy)) dummy.update(dt);

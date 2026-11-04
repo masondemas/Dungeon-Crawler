@@ -16,8 +16,9 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 | `combat.js` | Weapon in your hand, swing animation, hit detection |
 | `dummies.js` | Training dummies (practice targets) |
 | `equipment.js` | Shield and armor stats (data only) and shield models |
-| `pickups.js` | Things you pick up by walking over them (healing potions) and the potion model |
-| `enemies.js` | Enemy stats (data only), enemy models and behaviour |
+| `pickups.js` | Things you pick up by walking over them (healing potions), the potion model, the exit portal |
+| `enemies.js` | Enemy and boss stats (data only), enemy models and behaviour |
+| `progress.js` | Carries potions and gear from one level to the next (browser session storage) |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
 | `README.md` | Short intro + how to play |
@@ -214,6 +215,41 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - Numbers in `PLAYER_STATS` (`startingPotions`, `potionHeal`, `potionDrinkTime`,
   `drinkMoveSpeed`, `regenDelay`, `regenPerSecond`).
 
+### Step 10: Bosses, level exits, a second level ✅
+- **Ghouls retuned** (they were too easy): health 45 → 60, damage 12 → 14,
+  speed 2.6 → 3.0, wind-up 0.65 → 0.55 s, rest after attacking 1.0 → 0.8 s.
+- **New enemy, Skeleton** (map letter `K`): 75 health, 16 damage, 3.4 m/s,
+  0.5 s wind-up. Bone-white with icy blue eyes, thinner body.
+- **Bosses** (map letter `B`; each level says which boss in `boss:`):
+  - **The Crypt Lord** (Level 1): giant horned Ghoul, 1.9× size, 450 health,
+    28 damage, reach 2.8 m, slow (2.4 m/s), long 0.85 s wind-up.
+  - **The Bone Colossus** (Level 2): giant horned Skeleton, 2.1× size, 520
+    health, 30 damage, reach 3 m.
+  - Boss rules (all data): **knockback** (shoves you back about 1.2 m, about 0.7 m
+    when blocked); a blocked boss doesn't recoil; **immune to light-hit
+    staggers** (maces too); power-attack staggers are **half as long**;
+    **enrage** at 50% health (speed ×1.35, wind-up ×0.75, rest ×0.6) with an
+    announcement.
+  - Big boss health bar at the top of the screen once the boss notices you.
+    The controls hint hides during boss fights to make room.
+- **Exit portal** (map letter `X`): a stone arch that glows blue when the boss
+  dies. Walk in to finish the level. Levels without a boss have it open from the start.
+- **Level complete screen:** time played (only counts while playing, not
+  paused) and enemies defeated. Click to go to the next level.
+- **Victory screen** after the last level → click to play again from Level 1.
+- **Levels:** the level number is in the address (`index.html?level=2`).
+  Potions and gear carry over (`progress.js`, browser session storage). You
+  start each level at full health. **Dying restarts the current level** with the
+  potions and gear you started it with.
+- **Difficulty per level:** `difficulty` in `levels.js` multiplies every enemy's
+  health and damage. Level 1 = 1.0, Level 2 = 1.3.
+- **Level 1 extended** (42 × 62 tiles): start room → pillar hall → side room →
+  great hall (old boss room) → ossuary → long gallery → big boss room (26 × 15
+  tiles). 14 Ghouls, 5 potions, the Crypt Lord, exit portal behind the boss.
+- **Level 2 "The Bone Halls"** (44 × 52 tiles): 8 rooms in a loop from the south
+  up to a wide north-west boss room. 15 Skeletons, 5 Ghouls, 6 potions,
+  the Bone Colossus.
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
@@ -227,7 +263,9 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 7. ~~Weapon data table (dagger / sword / axe / mace) and stagger from maces~~ ✅
 8. ~~Shields and armor~~ ✅
 9. ~~Healing potions (hotkey + drink delay) and health regen after 5 s~~ ✅
-10. Boss room at the end of the level, then the next level with harder enemies.
+10. ~~Boss room at the end of the level, then the next level with harder enemies~~ ✅
+    **Next:** playtest. Use the time on the level complete screen to grow the
+    levels towards 10–12 minutes each. Then the graphics pass (see Graphics plan).
 11. Menus: start, death/restart, level complete.
 12. Polish: sounds, better low-poly models, lighting tweaks.
 
@@ -240,9 +278,15 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   block this kind of script when a page is opened straight from a file.
 - No jumping or crouching yet (not in the plan unless we decide we want it).
 - Desktop only for now: needs a keyboard and mouse.
-- Level 1 is currently small (about 1–2 minutes to walk through). This is on
-  purpose while we build combat; it gets expanded after step 5.
-- Level 1 has no exit yet. Reaching the boss room does nothing until step 10.
+- Level length: first guess is about 6–8 minutes for Level 1, short of the
+  10–12 minute goal. Check the times on the level complete screen and extend
+  the maps (more rooms and enemies) to match.
+- Bosses use the same simple behaviour as other enemies, just stronger. Ideas
+  for later: special attacks (ground slam, charge), summoning minions.
+- If the browser blocks session storage, potions and gear won't carry between
+  levels (you start each level with the default gear). The game still works.
+- You can skip to a level by typing `?level=2` at the end of the address. Handy
+  for testing, and harmless.
 - If a map row has the wrong length, the game shows a warning in the browser
   console (F12), and the level may look broken.
 - Walls are all the same height and there are no doors yet.
@@ -266,9 +310,8 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 ## Playtest feedback
 
 - **Steps 1–7:** everything works.
-- **Step 5:** Ghouls feel **extremely easy**. Keep them as the starting point,
-  then make them tougher when we tune Level 1 (ideas: more health, faster,
-  shorter wind-up, attacking in groups, tougher enemy types later on).
+- **Step 5:** Ghouls feel **extremely easy**. → Step 10: Ghouls made tougher
+  and more numerous, Skeletons added, and per-level difficulty. Re-check.
 
 ## Graphics plan
 

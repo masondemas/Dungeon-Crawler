@@ -63,3 +63,61 @@ export function createPickup(scene, kind, x, z) {
     },
   };
 }
+
+// ---------- Exit portal (map letter X) ----------
+// Hidden until the level's boss is dead, then it glows and you can walk into it.
+export function createExitPortal(scene, x, z) {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+
+  const stone = new THREE.MeshStandardMaterial({ color: 0x4a4640, roughness: 1, flatShading: true });
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0x7fe6ff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+
+  // Stone arch frame (always visible, so you can see where the exit will be)
+  const pillarGeo = new THREE.BoxGeometry(0.35, 3, 0.4);
+  const left = new THREE.Mesh(pillarGeo, stone);
+  left.position.set(-1.1, 1.5, 0);
+  const right = new THREE.Mesh(pillarGeo, stone);
+  right.position.set(1.1, 1.5, 0);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.4, 0.45), stone);
+  top.position.set(0, 3.1, 0);
+  group.add(left, right, top);
+
+  // The glowing doorway (only shows once it opens)
+  const door = new THREE.Mesh(new THREE.PlaneGeometry(1.85, 2.9), glowMat);
+  door.position.set(0, 1.45, 0);
+  group.add(door);
+  const floorGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(1.4, 16),
+    new THREE.MeshBasicMaterial({ color: 0x7fe6ff, transparent: true, opacity: 0, depthWrite: false })
+  );
+  floorGlow.rotation.x = -Math.PI / 2;
+  floorGlow.position.y = 0.02;
+  group.add(floorGlow);
+
+  const light = new THREE.PointLight(0x7fe6ff, 0, 10, 1.5);
+  light.position.set(0, 1.6, 0.6);
+  group.add(light);
+
+  scene.add(group);
+
+  let openAmount = 0; // fades in from 0 to 1 when opened
+  let isOpen = false;
+  let time = 0;
+
+  return {
+    position: group.position,
+    get isOpen() { return isOpen; },
+    open() { isOpen = true; },
+    // Turn the arch so its doorway faces a direction (radians)
+    face(angle) { group.rotation.y = angle; },
+    update(dt) {
+      time += dt;
+      if (isOpen) openAmount = Math.min(1, openAmount + dt / 1.5);
+      const pulse = 0.85 + Math.sin(time * 3) * 0.15;
+      glowMat.opacity = 0.75 * openAmount * pulse;
+      floorGlow.material.opacity = 0.35 * openAmount * pulse;
+      light.intensity = 18 * openAmount * pulse;
+    },
+  };
+}

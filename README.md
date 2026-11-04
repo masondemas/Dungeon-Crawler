@@ -27,6 +27,8 @@ Open a terminal in this folder and run:
 
 Then visit http://localhost:8000. Double-clicking `index.html` won't work.
 
+Two levels, each ending in a boss. Kill the boss, then walk into the glowing exit.
+
 Want to design a level? Edit the text maps in [levels.js](levels.js).
 
 See [NOTES.md](NOTES.md) for the game design, progress and plans.
