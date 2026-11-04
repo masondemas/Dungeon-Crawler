@@ -11,6 +11,7 @@ Built with plain HTML + JavaScript and [Three.js](https://threejs.org/).
 - **W A S D**: move
 - **Mouse**: look around
 - **Shift**: run
+- **Left click**: attack
 - **Esc**: release the mouse
 
 ## Run it on your own computer

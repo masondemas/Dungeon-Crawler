@@ -1,10 +1,13 @@
 // =============================================================
-//  Dungeon Crawler - Step 3: health and stamina
+//  Dungeon Crawler - Step 4: sword and light attack
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { LEVELS } from './levels.js';
-import { updateHUD, flashHurt } from './hud.js';
+import { updateHUD, flashHurt, showDamageNumber } from './hud.js';
+import { WEAPONS } from './weapons.js';
+import { createCombat } from './combat.js';
+import { createDummy } from './dummies.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -62,6 +65,7 @@ function takeDamage(amount) {
 
 // ---------- Basic setup: renderer, scene, camera ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.autoClear = false; // we draw the world first, then the weapon on top
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.prepend(renderer.domElement);
@@ -134,6 +138,9 @@ const colliders = [];
 // Every torch in the level: { position, colour }
 const torches = [];
 
+// Everything the player can hit with a weapon (training dummies for now, enemies later)
+const targets = [];
+
 // ---------- Build a level from its text map ----------
 function buildLevel(level) {
   const map = level.map;
@@ -164,6 +171,11 @@ function buildLevel(level) {
         floorTiles.push({ x, z });
         if (c === 'P') pillarTiles.push({ x, z });
         if (c === 'S') start = centre(x, z);
+        if (c === 'D') {
+          const p = centre(x, z);
+          targets.push(createDummy(scene, p.x, p.z));
+          colliders.push({ minX: p.x - 0.35, maxX: p.x + 0.35, minZ: p.z - 0.35, maxZ: p.z + 0.35 });
+        }
       }
     }
   }
@@ -285,6 +297,11 @@ controls.addEventListener('unlock', () => overlay.classList.remove('hidden'));
 
 // ---------- Keyboard ----------
 const keys = {};
+// Left mouse button = light attack
+window.addEventListener('mousedown', (e) => {
+  if (e.button === 0 && controls.isLocked) combat.attack();
+});
+
 window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
   // TEST ONLY: press K to hurt yourself, so we can check the health bar works.
@@ -332,8 +349,9 @@ const forward = new THREE.Vector3();
 const right = new THREE.Vector3();
 const move = new THREE.Vector3();
 
+// Returns how fast we're moving: 0 = standing still, 1 = walking, more = running
 function updateMovement(dt) {
-  if (!controls.isLocked) return;
+  if (!controls.isLocked) return 0;
 
   // Which way is the camera facing (flattened so looking up/down doesn't change speed)
   camera.getWorldDirection(forward);
@@ -346,7 +364,7 @@ function updateMovement(dt) {
   if (keys['KeyS']) move.sub(forward);
   if (keys['KeyD']) move.add(right);
   if (keys['KeyA']) move.sub(right);
-  if (move.lengthSq() === 0) return;
+  if (move.lengthSq() === 0) return 0;
 
   // You can only run if you have stamina left and aren't winded
   const wantsToRun = keys['ShiftLeft'] || keys['ShiftRight'];
@@ -367,7 +385,24 @@ function updateMovement(dt) {
   // Running only costs stamina if you actually got somewhere (not when pushing into a wall)
   const moved = Math.hypot(camera.position.x - startX, camera.position.z - startZ);
   if (running && moved > move.length() * 0.3) useStamina(PLAYER_STATS.runStaminaPerSecond * dt);
+  return running ? 1.5 : 1;
 }
+
+// ---------- Combat ----------
+const combat = createCombat({
+  camera,
+  getTargets: () => targets,
+  useStamina,
+  getStamina: () => player.stamina,
+  // Show a floating damage number where the target is on screen
+  onHitTarget(target, damage) {
+    const p = target.position.clone().project(camera);
+    const x = (p.x + 1) / 2 * window.innerWidth;
+    const y = (1 - p.y) / 2 * window.innerHeight - 40;
+    showDamageNumber(x, y, damage);
+  },
+});
+combat.equip(WEAPONS.sword);
 
 // ---------- Main loop ----------
 const clock = new THREE.Clock();
@@ -376,12 +411,18 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1); // cap so a lag spike can't teleport you through walls
 
-  updateMovement(dt);
-  if (controls.isLocked) updateStamina(dt);
+  const moveAmount = updateMovement(dt);
+  if (controls.isLocked) {
+    updateStamina(dt);
+    combat.update(dt, moveAmount);
+  }
+  targets.forEach((target) => target.update(dt));
   updateHUD(player, dt);
   updateTorchLights(clock.elapsedTime);
 
+  renderer.clear();
   renderer.render(scene, camera);
+  combat.render(renderer); // weapon drawn last, on top of the world
 }
 animate();
 
@@ -390,4 +431,5 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  combat.resize(camera.aspect);
 });

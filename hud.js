@@ -55,3 +55,14 @@ export function updateHUD(player, dt) {
 export function flashHurt() {
   flashAmount = 1;
 }
+
+// Shows a number that floats up and fades out at a spot on the screen (in pixels)
+export function showDamageNumber(screenX, screenY, amount) {
+  const el = document.createElement('div');
+  el.className = 'damage-number';
+  el.textContent = amount;
+  el.style.left = `${screenX + (Math.random() * 30 - 15)}px`;
+  el.style.top = `${screenY}px`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 900); // matches the animation length in index.html
+}

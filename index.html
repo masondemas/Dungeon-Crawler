@@ -121,6 +121,23 @@
       opacity: 0;
     }
 
+    /* Floating damage numbers */
+    .damage-number {
+      position: fixed;
+      transform: translate(-50%, 0);
+      font-size: 26px;
+      font-weight: bold;
+      color: #fff6dc;
+      -webkit-text-stroke: 1px #3a0d06;
+      text-shadow: 0 0 6px #000, 0 2px 3px #000;
+      pointer-events: none;
+      animation: float-up 0.9s ease-out forwards;
+    }
+    @keyframes float-up {
+      from { opacity: 1; margin-top: 0; }
+      to   { opacity: 0; margin-top: -50px; }
+    }
+
     #overlay h1 { margin: 0 0 12px; font-size: 42px; letter-spacing: 2px; }
     #overlay p  { margin: 4px; font-size: 18px; }
     #overlay.hidden { display: none; }
@@ -132,7 +149,7 @@
 
   <div id="hint">
     <b>W A S D</b> move &nbsp;·&nbsp; <b>Mouse</b> look &nbsp;·&nbsp; <b>Shift</b> run<br>
-    <b>Esc</b> release mouse<br>
+    <b>Left click</b> attack &nbsp;·&nbsp; <b>Esc</b> release mouse<br>
     <span style="opacity:0.6"><b>K</b> hurt yourself (test only)</span>
   </div>
 
@@ -146,18 +163,28 @@
   <div id="overlay">
     <h1>DUNGEON</h1>
     <p>Click to play</p>
-    <p style="opacity:0.7">W A S D to move · Mouse to look · Shift to run · Esc to pause</p>
+    <p style="opacity:0.7">W A S D to move · Mouse to look · Shift to run · Left click to attack · Esc to pause</p>
   </div>
 
-  <!-- Tells the browser where to download Three.js from (no install needed) -->
+  <!--
+    Tells the browser where to find each code file.
+    - Three.js is downloaded from the internet (no install needed).
+    - Our own files get "?v=..." on the end. Changing that number with each update
+      makes browsers fetch the new files instead of using old saved copies.
+  -->
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+        "./levels.js": "./levels.js?v=4",
+        "./hud.js": "./hud.js?v=4",
+        "./weapons.js": "./weapons.js?v=4",
+        "./combat.js": "./combat.js?v=4",
+        "./dummies.js": "./dummies.js?v=4"
       }
     }
   </script>
-  <script type="module" src="game.js"></script>
+  <script type="module" src="game.js?v=4"></script>
 </body>
 </html>

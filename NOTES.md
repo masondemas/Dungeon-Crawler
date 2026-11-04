@@ -11,7 +11,10 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 |---|---|
 | `index.html` | The web page: crosshair, controls hint, "click to play" screen, loads Three.js |
 | `game.js` | All game code: builds the level from its map, camera, movement, mouse look, collisions, torches |
-| `hud.js` | Keeps the on-screen health and stamina bars up to date |
+| `hud.js` | Keeps the on-screen health and stamina bars up to date; floating damage numbers |
+| `weapons.js` | Weapon stats (data only) and the low-poly weapon models |
+| `combat.js` | Weapon in your hand, swing animation, hit detection |
+| `dummies.js` | Training dummies (practice targets) |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
 | `README.md` | Short intro + how to play |
@@ -82,12 +85,32 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - Controls hint moved to the top-right corner to make room for the bars.
 - **Test only:** press **K** to take 10 damage. Remove this once enemies exist.
 
+### Step 4: Sword and light attack ✅
+- Low-poly iron sword in the bottom-right of the screen. It bobs as you walk.
+  It's drawn in its own layer on top of the world, so it never clips into walls.
+- **Left click = light attack:** a diagonal slash from upper right to lower left
+  (wind-up → strike → recover). Click again during the end of a swing to chain
+  the next one.
+- Weapons are **data** in `weapons.js` (damage, reach, arc, wind-up / strike /
+  recover times, stamina cost). The sword: 15 damage, 2.3 m reach, 100° arc.
+  Light attacks cost 0 stamina, like Skyrim. Change `staminaCost` to make them cost some.
+- Hit detection: during the strike part of the swing, anything in reach and
+  inside the swing's arc gets hit, once per swing.
+- Anything hittable is a "target" (`position`, `radius`, `onHit()`). Enemies
+  will use the same setup.
+- **Training dummies:** map letter `D`. They wobble, flash red and show a
+  floating damage number when hit, and can't be destroyed. Level 1 has 3 (two in
+  the start room, one in the pillar hall).
+- **Update fix:** `index.html` adds a version number (`?v=4`) to every game file,
+  so browsers download fresh files after each update. **Bump this number with every
+  update** (all lines in the import map plus the `game.js` script tag).
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
 2. ~~Level layout: several rooms joined by corridors, built from a text map~~ ✅
 3. ~~Player stats + HUD: health bar and stamina bar~~ ✅
-4. First-person weapon in view, plus the light attack (swing animation, hit detection).
+4. ~~First-person weapon in view, plus the light attack (swing + hit detection)~~ ✅
 5. A basic enemy: placeholder shape that chases you, attacks, takes damage and dies.
    **Then:** place enemies around Level 1, playtest, and grow the level until a
    run takes 10–12 minutes (more rooms, plus `tileSize` if rooms feel cramped).
@@ -117,3 +140,6 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - Health never refills yet (regen is step 9), and reaching 0 health does
   nothing yet (death screen is step 11). Reload the page to reset.
 - The K "hurt yourself" key is a temporary test tool.
+- Attacks can hit through a thin wall corner if a target is within reach on the
+  other side. That's rare with dummies. Revisit when enemies exist (line-of-sight check).
+- No sounds yet (step 12).

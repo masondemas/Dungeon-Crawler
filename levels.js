@@ -9,6 +9,7 @@
 //   P  floor with a stone pillar on it
 //   T  wall with a torch on it (torch faces the nearest floor)
 //   R  wall with a red torch on it (used for the boss room)
+//   D  floor with a training dummy on it (something to practise hitting)
 //
 // Rows go from north (top) to south (bottom). All rows must be the same length.
 // To make a new level, copy one of these, change the map, and add it to the list.
@@ -19,12 +20,12 @@ export const LEVELS = [
     startFacing: 'east', // which way the player looks at the start: north, south, east or west
     map: [
       '############T#######T###',
-      '#......T####.........###',
+      '#....D.T####.........###',
       '#......#####.........###',
       'T..S..........P...P..###',
       '#....................###',
-      '#......#####.........T##',
-      '#......#####.........###',
+      '#......#####...D.....T##',
+      '#....D.#####.........###',
       '############..P...P..###',
       '###########T.........###',
       '############.........###',
