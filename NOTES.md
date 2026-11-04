@@ -11,6 +11,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 |---|---|
 | `index.html` | The web page: crosshair, controls hint, "click to play" screen, loads Three.js |
 | `game.js` | All game code: builds the level from its map, camera, movement, mouse look, collisions, torches |
+| `hud.js` | Keeps the on-screen health and stamina bars up to date |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
 | `README.md` | Short intro + how to play |
@@ -65,11 +66,27 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - The player carries a faint lantern so dark corridors are still visible.
 - The level name shows in the top-left corner.
 
+### Step 3: Health and stamina ✅
+- Health bar (red) and stamina bar (green) at the bottom centre. They shrink in
+  from both ends like Skyrim's. A pale "ghost" shows what you just lost, then
+  slides away.
+- Player numbers live in `PLAYER_STATS` at the top of `game.js`
+  (max health 100, max stamina 100, run cost, refill speed, refill delay).
+- Running (Shift) costs 20 stamina per second, but only while you're actually
+  moving. Pushing into a wall costs nothing.
+- Stamina refills at 25 per second after a 1 second pause.
+- Run it to 0 and you're **winded**: the bar turns dull and you can't run
+  until it refills to 30.
+- `takeDamage()` lowers health and flashes the screen edges red.
+  `useStamina()` is ready for attacks and blocking to use later.
+- Controls hint moved to the top-right corner to make room for the bars.
+- **Test only:** press **K** to take 10 damage. Remove this once enemies exist.
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
 2. ~~Level layout: several rooms joined by corridors, built from a text map~~ ✅
-3. Player stats + HUD: health bar and stamina bar.
+3. ~~Player stats + HUD: health bar and stamina bar~~ ✅
 4. First-person weapon in view, plus the light attack (swing animation, hit detection).
 5. A basic enemy: placeholder shape that chases you, attacks, takes damage and dies.
    **Then:** place enemies around Level 1, playtest, and grow the level until a
@@ -97,3 +114,6 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - If a map row has the wrong length, the game shows a warning in the browser
   console (F12), and the level may look broken.
 - Walls are all the same height and there are no doors yet.
+- Health never refills yet (regen is step 9), and reaching 0 health does
+  nothing yet (death screen is step 11). Reload the page to reset.
+- The K "hurt yourself" key is a temporary test tool.

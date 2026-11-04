@@ -1,9 +1,10 @@
 // =============================================================
-//  Dungeon Crawler - Step 2: levels built from a text map
+//  Dungeon Crawler - Step 3: health and stamina
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { LEVELS } from './levels.js';
+import { updateHUD, flashHurt } from './hud.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -16,6 +17,48 @@ const SETTINGS = {
   pillarSize: 1.2,
   maxTorchLights: 8,    // only the nearest torches actually cast light (keeps the game fast)
 };
+
+// ---------- Player stats (tweak these freely) ----------
+const PLAYER_STATS = {
+  maxHealth: 100,
+  maxStamina: 100,
+  runStaminaPerSecond: 20,   // stamina used each second while running
+  staminaRegenPerSecond: 25, // stamina gained back each second while resting
+  staminaRegenDelay: 1,      // seconds to wait after using stamina before it refills
+  windedRecoverAt: 30,       // if stamina hits 0, you can't run again until it's back to this
+};
+
+// The player's current numbers. These change as you play.
+const player = {
+  health: PLAYER_STATS.maxHealth,
+  maxHealth: PLAYER_STATS.maxHealth,
+  stamina: PLAYER_STATS.maxStamina,
+  maxStamina: PLAYER_STATS.maxStamina,
+  staminaRegenTimer: 0, // counts down; stamina refills when it reaches 0
+  winded: false,        // true after running out of stamina completely
+};
+
+// Use up some stamina (later: attacks, power attacks and blocking will use this too)
+function useStamina(amount) {
+  player.stamina = Math.max(0, player.stamina - amount);
+  player.staminaRegenTimer = PLAYER_STATS.staminaRegenDelay;
+  if (player.stamina === 0) player.winded = true;
+}
+
+function updateStamina(dt) {
+  if (player.staminaRegenTimer > 0) {
+    player.staminaRegenTimer -= dt;
+    return;
+  }
+  player.stamina = Math.min(player.maxStamina, player.stamina + PLAYER_STATS.staminaRegenPerSecond * dt);
+  if (player.winded && player.stamina >= PLAYER_STATS.windedRecoverAt) player.winded = false;
+}
+
+// Take damage (later: enemies will call this, and armor will reduce the amount)
+function takeDamage(amount) {
+  player.health = Math.max(0, player.health - amount);
+  flashHurt();
+}
 
 // ---------- Basic setup: renderer, scene, camera ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -242,7 +285,12 @@ controls.addEventListener('unlock', () => overlay.classList.remove('hidden'));
 
 // ---------- Keyboard ----------
 const keys = {};
-window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+window.addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  // TEST ONLY: press K to hurt yourself, so we can check the health bar works.
+  // Remove this once there are enemies.
+  if (e.code === 'KeyK' && !e.repeat && controls.isLocked) takeDamage(10);
+});
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
 // ---------- Collision ----------
@@ -300,17 +348,25 @@ function updateMovement(dt) {
   if (keys['KeyA']) move.sub(right);
   if (move.lengthSq() === 0) return;
 
-  const running = keys['ShiftLeft'] || keys['ShiftRight'];
+  // You can only run if you have stamina left and aren't winded
+  const wantsToRun = keys['ShiftLeft'] || keys['ShiftRight'];
+  const running = wantsToRun && !player.winded && player.stamina > 0;
   const speed = running ? SETTINGS.runSpeed : SETTINGS.walkSpeed;
   move.normalize().multiplyScalar(speed * dt); // normalize = diagonal isn't faster
 
   // Move in small slices so a big step (e.g. on a slow computer) can't skip through a wall
+  const startX = camera.position.x;
+  const startZ = camera.position.z;
   const steps = Math.ceil(move.length() / (SETTINGS.playerRadius / 2));
   for (let i = 0; i < steps; i++) {
     camera.position.x += move.x / steps;
     camera.position.z += move.z / steps;
     resolveCollisions(camera.position);
   }
+
+  // Running only costs stamina if you actually got somewhere (not when pushing into a wall)
+  const moved = Math.hypot(camera.position.x - startX, camera.position.z - startZ);
+  if (running && moved > move.length() * 0.3) useStamina(PLAYER_STATS.runStaminaPerSecond * dt);
 }
 
 // ---------- Main loop ----------
@@ -321,6 +377,8 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1); // cap so a lag spike can't teleport you through walls
 
   updateMovement(dt);
+  if (controls.isLocked) updateStamina(dt);
+  updateHUD(player, dt);
   updateTorchLights(clock.elapsedTime);
 
   renderer.render(scene, camera);
