@@ -1,11 +1,11 @@
 // =============================================================
-//  Dungeon Crawler - Step 6: power attacks and blocking
+//  Dungeon Crawler - Step 7: daggers, swords, axes and maces
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { LEVELS } from './levels.js';
-import { updateHUD, flashHurt, showDamageNumber, setCharge, showMessage, flashBlock, updateFlashes } from './hud.js';
-import { WEAPONS } from './weapons.js';
+import { updateHUD, flashHurt, showDamageNumber, setCharge, showMessage, flashBlock, updateFlashes, setWeaponPanel } from './hud.js';
+import { WEAPONS, WEAPON_KEYS } from './weapons.js';
 import { createCombat } from './combat.js';
 import { createDummy } from './dummies.js';
 import { createEnemy } from './enemies.js';
@@ -389,7 +389,12 @@ window.addEventListener('mouseup', (e) => {
 // Stop the right-click menu from popping up
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 
-window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+window.addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  // Number keys 1-4 switch weapons (for now; later you might find weapons in the dungeon)
+  const slot = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
+  if (slot !== -1 && !e.repeat && controls.isLocked && !player.dead) equipWeapon(WEAPON_KEYS[slot]);
+});
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
 // ---------- Collision ----------
@@ -505,6 +510,7 @@ function updateMovement(dt) {
   const busy = combat.isGuarding() || combat.isCharging();
   const running = wantsToRun && !busy && !player.winded && player.stamina > 0;
   let speed = running ? SETTINGS.runSpeed : SETTINGS.walkSpeed;
+  speed *= combat.getWeapon().moveSpeed; // heavy weapons slow you down a little
   if (combat.isGuarding()) speed *= PLAYER_STATS.blockMoveSpeed;
   else if (combat.isCharging()) speed *= PLAYER_STATS.chargeMoveSpeed;
   move.normalize().multiplyScalar(speed * dt); // normalize = diagonal isn't faster
@@ -537,7 +543,14 @@ const combat = createCombat({
   // Show how charged a power attack is on the crosshair
   onChargeChange: setCharge,
 });
+function equipWeapon(key) {
+  const weapon = WEAPONS[key];
+  combat.equip(weapon);
+  setWeaponPanel(WEAPON_KEYS.map((k) => WEAPONS[k]), weapon);
+  showMessage(weapon.name);
+}
 combat.equip(WEAPONS.sword);
+setWeaponPanel(WEAPON_KEYS.map((k) => WEAPONS[k]), WEAPONS.sword);
 
 // ---------- Main loop ----------
 const clock = new THREE.Clock();

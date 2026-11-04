@@ -108,3 +108,24 @@ export function updateFlashes(dt) {
   blockFlashAmount = Math.max(0, blockFlashAmount - dt * 3);
   blockFlash.style.opacity = blockFlashAmount;
 }
+
+// ---------- Weapon panel (bottom right): which weapon you're holding ----------
+const weaponPanel = document.getElementById('weapon-panel');
+
+export function setWeaponPanel(allWeapons, current) {
+  weaponPanel.innerHTML = '';
+  const name = document.createElement('div');
+  name.className = 'weapon-name';
+  name.textContent = current.name;
+  weaponPanel.appendChild(name);
+
+  const slots = document.createElement('div');
+  slots.className = 'weapon-slots';
+  allWeapons.forEach((weapon, i) => {
+    const slot = document.createElement('span');
+    slot.className = weapon === current ? 'slot current' : 'slot';
+    slot.textContent = `${i + 1} ${weapon.model}`;
+    slots.appendChild(slot);
+  });
+  weaponPanel.appendChild(slots);
+}

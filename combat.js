@@ -13,6 +13,7 @@ const POSES = {
   charged: { pos: [0.30, -0.14, -0.56], rot: [0.3, 0.25, -0.65] },   // pulled far back for a power attack
   strike:  { pos: [-0.22, -0.32, -0.62], rot: [-0.6, 0.0, 1.65] },   // slashed across to the left
   block:   { pos: [0.26, -0.26, -0.56], rot: [-0.2, 0.35, 0.95] },  // held sideways across your body
+  lowered: { pos: [0.36, -0.95, -0.55], rot: [-1.1, 0.0, 0.2] },    // out of view (while switching weapons)
 };
 
 // Turns a pose into something we can smoothly blend between
@@ -49,7 +50,7 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
   let weapon = null;
   let model = null;
 
-  function equip(newWeapon) {
+  function swapModel(newWeapon) {
     weapon = newWeapon;
     if (model) holder.remove(model);
     model = buildWeaponModel(weapon);
@@ -57,8 +58,20 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
     holder.add(model);
   }
 
+  // Switch weapons: the old one lowers out of view, then the new one comes up
+  let nextWeapon = null;
+  function equip(newWeapon) {
+    if (!weapon) { swapModel(newWeapon); return; } // first weapon: no animation
+    if (newWeapon === weapon && phase !== 'swapOut') return;
+    nextWeapon = newWeapon;
+    attackHeld = false;
+    queued = false;
+    onChargeChange(null);
+    if (phase !== 'swapOut') setPhase('swapOut');
+  }
+
   // ----- State -----
-  // phase: 'ready' | 'windup' | 'charging' | 'strike' | 'recover'
+  // phase: 'ready' | 'windup' | 'charging' | 'strike' | 'recover' | 'swapOut' | 'swapIn'
   let phase = 'ready';
   let phaseTime = 0;
   let attackHeld = false;   // is the left button down right now?
@@ -107,6 +120,7 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
     if (!weapon || blockHeld) return;                       // can't attack while holding block
     if (phase === 'ready') startAttack();
     else if (phase === 'recover' || phase === 'strike') queued = true; // chain the next swing
+    // (clicks while switching weapons are ignored)
   }
 
   function releaseAttack() {
@@ -150,7 +164,11 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
         : 1;
       const damage = Math.round(weapon.damage * multiplier);
       if (isPower) dir.multiplyScalar(1.8); // power attacks shove harder
-      target.onHit(damage, dir, { stagger: isPower ? weapon.powerStagger : 0 });
+      // Power attacks always stagger. Some weapons (maces) also stagger on normal hits.
+      target.onHit(damage, dir, {
+        stagger: isPower ? weapon.powerStagger : weapon.hitStagger,
+        forceStagger: isPower,
+      });
       onHitTarget(target, damage, isPower);
     }
   }
@@ -204,6 +222,19 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
       quat.slerpQuaternions(from.quat, T.rest.quat, easeInOut(t));
       if (queued && t > 0.35) { queued = false; startAttack(); } // chained swing
       else if (t >= 1) setPhase('ready');
+    } else if (phase === 'swapOut') {
+      const t = Math.min(phaseTime / 0.18, 1);
+      pos.lerpVectors(from.pos, T.lowered.pos, easeInOut(t));
+      quat.slerpQuaternions(from.quat, T.lowered.quat, easeInOut(t));
+      if (t >= 1) {
+        swapModel(nextWeapon);
+        setPhase('swapIn');
+      }
+    } else if (phase === 'swapIn') {
+      const t = Math.min(phaseTime / 0.22, 1);
+      pos.lerpVectors(T.lowered.pos, T.rest.pos, easeOut(t));
+      quat.slerpQuaternions(T.lowered.quat, T.rest.quat, easeOut(t));
+      if (t >= 1) setPhase('ready');
     } else {
       // Ready: blend between resting and blocking
       pos.lerpVectors(T.rest.pos, T.block.pos, easeInOut(blockAmount));
@@ -251,6 +282,7 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
     isBlocking: () => blockAmount > 0.6,   // raised enough to actually block
     isGuarding: () => blockAmount > 0,     // raised at all (slows you down)
     isCharging: () => phase === 'charging',
+    isSwitching: () => phase === 'swapOut' || phase === 'swapIn',
     blockImpact: () => { impact = 1; },
     breakGuard: () => { blockAmount = 0; blockHeld = false; },
   };

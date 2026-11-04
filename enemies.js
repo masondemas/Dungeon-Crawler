@@ -127,6 +127,7 @@ export function createEnemy(scene, typeName, x, z, world) {
     feet: model.root.position,              // where it stands on the floor (moving this moves the enemy)
     state: 'idle',          // 'idle' | 'chase' | 'windup' | 'strike' | 'recover' | 'stagger' | 'dead'
     staggerTime: 0,         // how long the current stagger lasts
+    staggerImmunity: 0,     // after being staggered, light hits can't stagger again for a moment
     stateTime: 0,
     facing: Math.random() * Math.PI * 2,
     lastSeen: null,
@@ -143,7 +144,9 @@ export function createEnemy(scene, typeName, x, z, world) {
       bar.fill.scale.x = Math.max(0, this.health / type.health);
       if (this.state === 'idle') this.setState('chase'); // hitting it wakes it up
       if (this.health <= 0) { this.die(); return; }
-      if (options.stagger) this.stagger(options.stagger); // power attacks knock it off balance
+      // Knocked off balance? Power attacks always stagger. Light-hit staggers (maces)
+      // don't work again straight away, so an enemy can't be stun-locked forever.
+      if (options.stagger && (options.forceStagger || this.staggerImmunity <= 0)) this.stagger(options.stagger);
     },
 
     // Knocked off balance: can't move or attack for a moment (cancels an attack in progress)
@@ -245,8 +248,12 @@ export function createEnemy(scene, typeName, x, z, world) {
       }
 
       else if (this.state === 'stagger') {
-        if (this.stateTime >= this.staggerTime) this.setState('chase');
+        if (this.stateTime >= this.staggerTime) {
+          this.setState('chase');
+          this.staggerImmunity = 1.2;
+        }
       }
+      this.staggerImmunity = Math.max(0, this.staggerImmunity - dt);
 
       // Being shoved by a hit
       if (this.knock.lengthSq() > 0.0001) {

@@ -149,6 +149,31 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - All the numbers are weapon data in `weapons.js`, or in `PLAYER_STATS` (block arc,
   guard-break time, move speeds). Shields will improve the block numbers in step 8.
 
+### Step 7: Weapon table (dagger, sword, axe, mace) ✅
+- Four weapons in `WEAPONS` (`weapons.js`), all using the same combat code:
+
+  | | Dagger | Sword | Axe | Mace |
+  |---|---|---|---|---|
+  | Damage (light) | 7 | 15 | 26 | 22 |
+  | Swing (wind-up / strike / recover, s) | 0.06 / 0.08 / 0.15 | 0.12 / 0.12 / 0.26 | 0.22 / 0.15 / 0.42 | 0.30 / 0.16 / 0.46 |
+  | Reach (m) / arc | 1.8 / 70° | 2.3 / 100° | 2.4 / 115° | 2.1 / 90° |
+  | Power charge time / cost | 0.5 s / 15 | 0.8 s / 25 | 1.0 s / 30 | 1.1 s / 30 |
+  | Power damage multiplier | ×1.6–2.8 | ×1.5–2.5 | ×1.5–2.6 | ×1.5–2.5 |
+  | Block reduction | 35% | 60% | 50% | 55% |
+  | Walk speed | 108% | 100% | 95% | 92% |
+  | Special | – | – | – | every hit staggers (0.45 s) |
+
+- New stats: `hitStagger` (stagger on normal hits, maces only) and
+  `moveSpeed` (heavier = slower walking).
+- **Stun-lock protection:** after a stagger ends, an enemy ignores light-hit
+  staggers for 1.2 s, so a mace can't keep an enemy stunned forever. Power
+  attacks always stagger.
+- **Switching:** number keys **1–4** (dagger, sword, axe, mace). The old weapon
+  lowers out of view and the new one rises. The weapon panel (bottom right) shows
+  what you hold. You start with the sword.
+- Low-poly models for each: dagger (short blade), axe (long handle, flared
+  blade), mace (flanged head with spike).
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
@@ -159,7 +184,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
    **Then:** place enemies around Level 1, playtest, and grow the level until a
    run takes 10–12 minutes (more rooms, plus `tileSize` if rooms feel cramped).
 6. ~~Power attack (hold to charge) and blocking, both using stamina~~ ✅
-7. Weapon data table (dagger / sword / axe / mace) and stagger from maces.
+7. ~~Weapon data table (dagger / sword / axe / mace) and stagger from maces~~ ✅
 8. Shields and armor.
 9. Healing potions (hotkey + drink delay) and health regen after 5 s.
 10. Boss room at the end of the level, then the next level with harder enemies.
@@ -190,6 +215,11 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   (maces will stagger with every hit in step 7).
 - Block and power attack make the (already easy) Ghouls even easier.
   Rebalance when we tune Level 1.
+- **Open design question:** right now all 4 weapons are always available
+  (keys 1–4). Later: should you **find** weapons in the dungeon instead (start
+  with one, pick up others)? Decide before the graphics pass.
+- Weapon balance is a first guess. Rough damage per second: dagger ~37, sword ~45,
+  axe ~51, mace ~35 (+ stagger). Tune after playtesting.
 - An enemy pressed right up against you can poke an arm through the camera.
 
 ## Playtest feedback
