@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dungeon Crawler</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: Georgia, serif;
+      color: #e8dcc0;
+    }
+
+    /* The little "+" in the middle of the screen */
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #crosshair::before,
+    #crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(255, 255, 255, 0.85);
+    }
+    #crosshair::before { left: 7px; top: 0; width: 2px; height: 16px; }
+    #crosshair::after  { top: 7px; left: 0; width: 16px; height: 2px; }
+
+    /* Small controls reminder in the corner */
+    #hint {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(232, 220, 192, 0.3);
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1.6;
+      pointer-events: none;
+    }
+
+    /* Full-screen "click to play" overlay, shown when the mouse is not locked */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      cursor: pointer;
+      text-align: center;
+    }
+    #overlay h1 { margin: 0 0 12px; font-size: 42px; letter-spacing: 2px; }
+    #overlay p  { margin: 4px; font-size: 18px; }
+    #overlay.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="crosshair"></div>
+
+  <div id="hint">
+    <b>W A S D</b> move &nbsp;·&nbsp; <b>Mouse</b> look &nbsp;·&nbsp; <b>Shift</b> run<br>
+    <b>Esc</b> release mouse
+  </div>
+
+  <div id="overlay">
+    <h1>DUNGEON</h1>
+    <p>Click to play</p>
+    <p style="opacity:0.7">W A S D to move · Mouse to look · Shift to run · Esc to pause</p>
+  </div>
+
+  <!-- Tells the browser where to download Three.js from (no install needed) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
