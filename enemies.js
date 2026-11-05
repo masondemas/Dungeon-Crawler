@@ -14,6 +14,7 @@
 //   radius        how wide it is for collisions
 //   scale         how big the model is (1 = person-sized)
 //   bloodColour   colour of the spurt when you hit it (skeletons give off bone chips)
+//   woundColour   colour of the cuts that build up on its body (see wounds.js)
 //
 // Extra numbers only bosses use:
 //   isBoss              shows the big health bar at the top of the screen
@@ -41,6 +42,7 @@ export const ENEMY_TYPES = {
     clothColour: 0x3b3328,
     eyeColour: 0xff5a1f,
     bloodColour: 0xa01212,
+    woundColour: 0xa81818,
   },
   skeleton: {
     name: 'Skeleton',
@@ -59,6 +61,7 @@ export const ENEMY_TYPES = {
     clothColour: 0x4a4038,
     eyeColour: 0x6ad7ff,
     bloodColour: 0xd9d2bf, // bone chips, not blood
+    woundColour: 0x3a2c20, // dark cracks in the bone
   },
 
   // ----- Bosses -----
@@ -79,6 +82,7 @@ export const ENEMY_TYPES = {
     clothColour: 0x2a1f1a,
     eyeColour: 0xff3010,
     bloodColour: 0x8e0e0e,
+    woundColour: 0x9a1212,
     isBoss: true,
     lightStaggerImmune: true,
     staggerResistance: 0.5,
@@ -103,6 +107,7 @@ export const ENEMY_TYPES = {
     clothColour: 0x3a3029,
     eyeColour: 0x58c8ff,
     bloodColour: 0xd2c9b0, // bone chips, not blood
+    woundColour: 0x3a2c20, // dark cracks in the bone
     isBoss: true,
     lightStaggerImmune: true,
     staggerResistance: 0.5,
@@ -193,6 +198,7 @@ function buildHealthBar() {
   fill.position.set(-0.38, 0, 0.001);
   group.add(back, fill);
   group.visible = false;
+  group.userData.noWounds = true; // don't put cuts on the health bar
   return { group, fill };
 }
 
@@ -224,6 +230,8 @@ export function createEnemy(scene, typeName, x, z, world, difficulty = 1) {
     position: new THREE.Vector3(x, 1.2 * type.scale, z), // chest height: what the player aims at
     feet: model.root.position,              // where it stands on the floor (moving this moves the enemy)
     bloodColour: type.bloodColour,
+    woundColour: type.woundColour,
+    woundRoot: model.root,                  // the 3D model that cuts get stuck onto (see wounds.js)
     height: 1.7 * type.scale,               // roughly how tall it is (for placing hit effects)
     state: 'idle',          // 'idle' | 'chase' | 'windup' | 'strike' | 'recover' | 'stagger' | 'dead'
     staggerTime: 0,         // how long the current stagger lasts

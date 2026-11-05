@@ -38,6 +38,8 @@ export function createDummy(scene, x, z) {
     position: new THREE.Vector3(x, 1.2, z),
     radius: 0.35,
     bloodColour: 0xc9a75a, // straw flies out instead of blood
+    woundColour: 0x4a3418, // torn, dark straw
+    woundRoot: pivot,
     height: 1.9,
     wobble: new THREE.Vector2(0, 0),      // current lean (x = lean along X, y = lean along Z)
     wobbleSpeed: new THREE.Vector2(0, 0),

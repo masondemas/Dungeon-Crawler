@@ -1,5 +1,5 @@
 // =============================================================
-//  Dungeon Crawler - Combat upgrade, stage 2: blood
+//  Dungeon Crawler - Combat upgrade, stage 3: accumulating wounds
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -13,6 +13,7 @@ import { createEnemy } from './enemies.js';
 import { createPickup, createExitPortal } from './pickups.js';
 import { loadProgress, saveProgress, clearProgress } from './progress.js';
 import { createBloodSystem } from './effects.js';
+import { findHitSurface, addWound, setBloodied } from './wounds.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -633,13 +634,23 @@ function updateMovement(dt) {
 // ---------- Blood ----------
 const blood = createBloodSystem(scene);
 
-// Spray from where the blade struck, in the direction it was travelling
-function spurtBlood(target, isPower, info) {
+// Where on the target the blade struck. First a rough guess (the side facing us;
+// overhead chops land higher), then wounds.js finds the exact spot on the model.
+function findImpact(target, info) {
   const toPlayer = new THREE.Vector3(camera.position.x - target.position.x, 0, camera.position.z - target.position.z).normalize();
-  const point = target.position.clone().addScaledVector(toPlayer, target.radius * 0.9);
-  // Overhead chops land higher (shoulder / head), side swings around the chest
-  if (info.swingName === 'overhead') point.y += target.height * 0.18;
-  else point.y += (Math.random() - 0.3) * target.height * 0.12;
+  const guess = target.position.clone().addScaledVector(toPlayer, target.radius * 0.9);
+  // Spread hits around the body a little (left/right and up/down) so cuts don't all stack up
+  const side = new THREE.Vector3(-toPlayer.z, 0, toPlayer.x);
+  guess.addScaledVector(side, (Math.random() - 0.5) * target.radius * 1.4);
+  if (info.swingName === 'overhead') guess.y += target.height * (0.12 + Math.random() * 0.12);
+  else guess.y += (Math.random() - 0.4) * target.height * 0.28;
+  const surface = findHitSurface(target, camera.position, guess);
+  return { point: surface ? surface.point.clone() : guess, surface, toPlayer };
+}
+
+// Spray from where the blade struck, in the direction it was travelling
+function spurtBlood(target, isPower, info, impact) {
+  const { point, toPlayer } = impact;
 
   const big = isPower || info.isFinisher;
   blood.spurt({
@@ -666,7 +677,17 @@ const combat = createCombat({
     const x = (p.x + 1) / 2 * window.innerWidth;
     const y = (1 - p.y) / 2 * window.innerHeight - 40;
     showDamageNumber(x, y, damage, isPower || info.isFinisher);
-    spurtBlood(target, isPower, info);
+
+    const impact = findImpact(target, info);
+    spurtBlood(target, isPower, info, impact);
+
+    // Leave a cut where the blade landed (bigger hits leave bigger cuts)
+    if (impact.surface) {
+      const size = Math.min(0.17 + damage * 0.005, 0.38) * (isPower ? 1.5 : info.isFinisher ? 1.3 : 1);
+      addWound(target, impact.surface, info.sweep, size);
+    }
+    // The more hurt an enemy is, the bloodier it looks overall
+    if (target.maxHealth) setBloodied(target, 1 - Math.max(0, target.health) / target.maxHealth);
   },
   // Show how charged a power attack is on the crosshair
   onChargeChange: setCharge,
