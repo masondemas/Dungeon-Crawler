@@ -13,6 +13,7 @@
 //   turnSpeed     how fast it can turn to face you (radians per second)
 //   radius        how wide it is for collisions
 //   scale         how big the model is (1 = person-sized)
+//   bloodColour   colour of the spurt when you hit it (skeletons give off bone chips)
 //
 // Extra numbers only bosses use:
 //   isBoss              shows the big health bar at the top of the screen
@@ -39,6 +40,7 @@ export const ENEMY_TYPES = {
     skinColour: 0x7d8c62,
     clothColour: 0x3b3328,
     eyeColour: 0xff5a1f,
+    bloodColour: 0xa01212,
   },
   skeleton: {
     name: 'Skeleton',
@@ -56,6 +58,7 @@ export const ENEMY_TYPES = {
     skinColour: 0xd8d0b8,
     clothColour: 0x4a4038,
     eyeColour: 0x6ad7ff,
+    bloodColour: 0xd9d2bf, // bone chips, not blood
   },
 
   // ----- Bosses -----
@@ -75,6 +78,7 @@ export const ENEMY_TYPES = {
     skinColour: 0x5e6e48,
     clothColour: 0x2a1f1a,
     eyeColour: 0xff3010,
+    bloodColour: 0x8e0e0e,
     isBoss: true,
     lightStaggerImmune: true,
     staggerResistance: 0.5,
@@ -98,6 +102,7 @@ export const ENEMY_TYPES = {
     skinColour: 0xcfc6ab,
     clothColour: 0x3a3029,
     eyeColour: 0x58c8ff,
+    bloodColour: 0xd2c9b0, // bone chips, not blood
     isBoss: true,
     lightStaggerImmune: true,
     staggerResistance: 0.5,
@@ -218,6 +223,8 @@ export function createEnemy(scene, typeName, x, z, world, difficulty = 1) {
     enraged: false,
     position: new THREE.Vector3(x, 1.2 * type.scale, z), // chest height: what the player aims at
     feet: model.root.position,              // where it stands on the floor (moving this moves the enemy)
+    bloodColour: type.bloodColour,
+    height: 1.7 * type.scale,               // roughly how tall it is (for placing hit effects)
     state: 'idle',          // 'idle' | 'chase' | 'windup' | 'strike' | 'recover' | 'stagger' | 'dead'
     staggerTime: 0,         // how long the current stagger lasts
     staggerImmunity: 0,     // after being staggered, light hits can't stagger again for a moment

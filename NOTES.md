@@ -18,6 +18,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 | `equipment.js` | Shield and armor stats (data only) and shield models |
 | `pickups.js` | Things you pick up by walking over them (healing potions), the potion model, the exit portal |
 | `enemies.js` | Enemy and boss stats (data only), enemy models and behaviour |
+| `effects.js` | Blood spurts: one pooled particle system for all droplets |
 | `progress.js` | Carries potions and gear from one level to the next (browser session storage) |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
@@ -270,7 +271,21 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 - Clicking during any part of a swing queues the next one, so fast clicking
   chains the full combo.
 
-## Planned build order
+### Combat upgrade, stage 2: Blood ✅
+- Every hit sprays droplets from the impact point (the side of the target facing
+  you; higher up for overhead chops), mostly in the **direction the blade was
+  travelling** (`sweep` from stage 1), plus a little out of the wound and upward.
+- Spurt size: normal hit **12** droplets, overhead finisher **24**, power attack
+  **32** (finisher and power also fly faster and further).
+- Droplets arc and fall with gravity, splat flat on the floor, and shrink away
+  within ~0.5–1.2 s.
+- Colour is data: `bloodColour` on each enemy type (Ghouls red, Crypt Lord darker
+  red, Skeletons and the Bone Colossus pale **bone chips**). Training dummies
+  spill **straw**.
+- **Performance:** one `InstancedMesh` holds a fixed pool of **400** droplets
+  (`effects.js`). Old droplets get reused when it's full, so nothing is created
+  mid-fight and all droplets are drawn together in one go.
+
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
 2. ~~Level layout: several rooms joined by corridors, built from a text map~~ ✅
@@ -292,7 +307,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 ## Combat upgrade (4 stages, requested after step 10)
 
 1. ~~Combo swings (alternating directions, overhead finisher, wind-up / strike / follow-through)~~ ✅
-2. Blood spurts on hits (bigger on power attacks and the finisher)
+2. ~~Blood spurts on hits (bigger on power attacks and the finisher)~~ ✅
 3. Accumulating wounds on enemies (must work with real 3D models later)
 4. Sound: Web Audio placeholder sounds in one sound manager, replaceable with files
 

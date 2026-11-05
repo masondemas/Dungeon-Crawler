@@ -1,5 +1,5 @@
 // =============================================================
-//  Dungeon Crawler - Combat upgrade, stage 1: combo swings
+//  Dungeon Crawler - Combat upgrade, stage 2: blood
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -12,6 +12,7 @@ import { createDummy } from './dummies.js';
 import { createEnemy } from './enemies.js';
 import { createPickup, createExitPortal } from './pickups.js';
 import { loadProgress, saveProgress, clearProgress } from './progress.js';
+import { createBloodSystem } from './effects.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -629,6 +630,28 @@ function updateMovement(dt) {
   return running ? 1.5 : 1;
 }
 
+// ---------- Blood ----------
+const blood = createBloodSystem(scene);
+
+// Spray from where the blade struck, in the direction it was travelling
+function spurtBlood(target, isPower, info) {
+  const toPlayer = new THREE.Vector3(camera.position.x - target.position.x, 0, camera.position.z - target.position.z).normalize();
+  const point = target.position.clone().addScaledVector(toPlayer, target.radius * 0.9);
+  // Overhead chops land higher (shoulder / head), side swings around the chest
+  if (info.swingName === 'overhead') point.y += target.height * 0.18;
+  else point.y += (Math.random() - 0.3) * target.height * 0.12;
+
+  const big = isPower || info.isFinisher;
+  blood.spurt({
+    point,
+    direction: info.sweep,
+    away: toPlayer.clone().negate(),
+    count: isPower ? 32 : info.isFinisher ? 24 : 12,
+    colour: target.bloodColour ?? 0xa01212,
+    force: big ? 1.5 : 1,
+  });
+}
+
 // ---------- Combat ----------
 const combat = createCombat({
   camera,
@@ -643,6 +666,7 @@ const combat = createCombat({
     const x = (p.x + 1) / 2 * window.innerWidth;
     const y = (1 - p.y) / 2 * window.innerHeight - 40;
     showDamageNumber(x, y, damage, isPower || info.isFinisher);
+    spurtBlood(target, isPower, info);
   },
   // Show how charged a power attack is on the crosshair
   onChargeChange: setCharge,
@@ -737,6 +761,7 @@ function animate() {
     player.guardBrokenTimer = Math.max(0, player.guardBrokenTimer - dt);
     combat.setBlock(blockButtonHeld && player.guardBrokenTimer <= 0);
     updateRegen(dt);
+    blood.update(dt);
 
     // Walk over a potion to pick it up
     for (const pickup of pickups) {
