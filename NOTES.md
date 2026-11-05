@@ -250,6 +250,26 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   up to a wide north-west boss room. 15 Skeletons, 5 Ghouls, 6 potions,
   the Bone Colossus.
 
+### Combat upgrade, stage 1: Combo swings ✅
+- Light attacks in a row form a **3-hit combo**: 1) right-to-left slash,
+  2) left-to-right backhand, 3) **overhead chop** (×1.3 damage, bigger
+  damage number, a 30% longer wind-up). Then it starts over.
+- Pause for **1 second** (`COMBO_RESET_TIME` in `combat.js`) and the combo resets to swing 1.
+- Every swing has 4 parts: **wind-up** (eases into the pulled-back pose) →
+  **strike** (starts slow, whips through fast; this is when it hits) →
+  **follow-through** (the blade carries on past and slows down) → **recover**.
+  Chained swings flow straight from the follow-through into the next wind-up.
+- Swing shapes are data in `SWINGS` (`combat.js`): wind-up / strike /
+  follow-through poses, timing scales, damage multiplier, and the blade's
+  travel direction (`sweep`, passed along with every hit for effects).
+- Speed comes from each weapon's `windup` / `strike` / `recover` (plus optional
+  `followThrough` and `finisherMultiplier` in `weapons.js`), so daggers combo
+  fastest and maces slowest.
+- **Power attacks stay separate:** they always use the big right-to-left swing,
+  don't count as a combo step, and reset the combo.
+- Clicking during any part of a swing queues the next one, so fast clicking
+  chains the full combo.
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
@@ -268,6 +288,13 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
     levels towards 10–12 minutes each. Then the graphics pass (see Graphics plan).
 11. Menus: start, death/restart, level complete.
 12. Polish: sounds, better low-poly models, lighting tweaks.
+
+## Combat upgrade (4 stages, requested after step 10)
+
+1. ~~Combo swings (alternating directions, overhead finisher, wind-up / strike / follow-through)~~ ✅
+2. Blood spurts on hits (bigger on power attacks and the finisher)
+3. Accumulating wounds on enemies (must work with real 3D models later)
+4. Sound: Web Audio placeholder sounds in one sound manager, replaceable with files
 
 ## Known issues / limitations
 

@@ -9,6 +9,14 @@
 //   windup        seconds pulling the weapon back before the swing
 //   strike        seconds of the actual swing (this is when it can hit things)
 //   recover       seconds returning to the ready pose (you can queue the next attack here)
+//   followThrough seconds the weapon carries on past the target after the strike
+//                 (optional: if left out it's 80% of the strike time)
+//   finisherMultiplier  damage multiplier for the 3rd combo swing, the overhead chop
+//                 (optional: if left out it's 1.3)
+//
+//   Combo: light attacks in a row go right-to-left, left-to-right, then an overhead
+//   chop. Pause for about a second and it starts over. Each part of each swing uses
+//   this weapon's windup/strike/recover times, so fast weapons combo faster.
 //   staminaCost   stamina used per light attack (0 = free, like Skyrim)
 //   hitStagger    seconds every hit knocks an enemy off balance (maces only)
 //   moveSpeed     walking speed multiplier while holding this weapon (heavy = slower)

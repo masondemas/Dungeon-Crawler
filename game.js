@@ -1,5 +1,5 @@
 // =============================================================
-//  Dungeon Crawler - Step 10: bosses, level exits and a second level
+//  Dungeon Crawler - Combat upgrade, stage 1: combo swings
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -637,11 +637,12 @@ const combat = createCombat({
   useStamina,
   getStamina: () => player.stamina,
   // Show a floating damage number where the target is on screen
-  onHitTarget(target, damage, isPower) {
+  // info = { sweep (direction the blade was moving), isFinisher (3rd combo swing), swingName }
+  onHitTarget(target, damage, isPower, info) {
     const p = target.position.clone().project(camera);
     const x = (p.x + 1) / 2 * window.innerWidth;
     const y = (1 - p.y) / 2 * window.innerHeight - 40;
-    showDamageNumber(x, y, damage, isPower);
+    showDamageNumber(x, y, damage, isPower || info.isFinisher);
   },
   // Show how charged a power attack is on the crosshair
   onChargeChange: setCharge,
