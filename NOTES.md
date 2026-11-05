@@ -19,6 +19,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 | `pickups.js` | Things you pick up by walking over them (healing potions), the potion model, the exit portal |
 | `enemies.js` | Enemy and boss stats (data only), enemy models and behaviour |
 | `effects.js` | Blood spurts: one pooled particle system for all droplets |
+| `wounds.js` | Cuts that build up on enemies where they were hit, and the overall bloodied look |
 | `progress.js` | Carries potions and gear from one level to the next (browser session storage) |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
@@ -286,6 +287,34 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   (`effects.js`). Old droplets get reused when it's full, so nothing is created
   mid-fight and all droplets are drawn together in one go.
 
+### Combat upgrade, stage 3: Accumulating wounds ✅
+- Every hit leaves a **cut** on the exact spot the blade struck. A ray from the
+  player into the enemy's 3D model finds the surface (`findHitSurface` in `wounds.js`).
+  The blood spurt now also starts from that exact spot.
+- Cuts lie flat on the surface, **lined up with the swing** (side slashes are
+  sideways, overhead chops vertical), with a little random twist and 4 different
+  cut pictures drawn by code.
+- **Bigger hits leave bigger cuts** (size grows with damage; ×1.3 for the
+  finisher, ×1.5 for power attacks). Hits spread around the body naturally.
+- Each cut is **attached to the body part it hit**, so it moves with that part
+  (arms, falling over when dead). Cuts stay until the enemy dies and vanish with
+  the body. Max 30 per enemy (the oldest gets reused).
+- **Overall bloodied look:** as health drops, the body's colours blend towards
+  the wound colour (up to 45%), so a badly hurt enemy looks it.
+- `woundColour` is data per enemy type: red gashes on Ghouls and the Crypt Lord,
+  dark cracks on Skeletons and the Bone Colossus, dark tears on dummies.
+- **Swapping in real 3D models later.** The wound system never looks at the
+  placeholder shapes. Each enemy only needs:
+  - `woundRoot`: its 3D model (any Three.js object, e.g. a loaded glTF scene).
+  - `woundColour`: the colour of its cuts.
+  - **Its own copy of its materials** (clone them when loading each enemy),
+    so the bloodied tint only affects that one enemy.
+  - **Animated models with bones (skinned meshes):** each cut is attached to the
+    **nearest bone**, so it follows the animation.
+  - Mark anything that shouldn't get cuts (health bars, weapon glows) with
+    `object.userData.noWounds = true`.
+
+## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
 2. ~~Level layout: several rooms joined by corridors, built from a text map~~ ✅
@@ -308,7 +337,7 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 
 1. ~~Combo swings (alternating directions, overhead finisher, wind-up / strike / follow-through)~~ ✅
 2. ~~Blood spurts on hits (bigger on power attacks and the finisher)~~ ✅
-3. Accumulating wounds on enemies (must work with real 3D models later)
+3. ~~Accumulating wounds on enemies (must work with real 3D models later)~~ ✅
 4. Sound: Web Audio placeholder sounds in one sound manager, replaceable with files
 
 ## Known issues / limitations
