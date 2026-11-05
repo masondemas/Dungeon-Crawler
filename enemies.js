@@ -15,6 +15,8 @@
 //   scale         how big the model is (1 = person-sized)
 //   bloodColour   colour of the spurt when you hit it (skeletons give off bone chips)
 //   woundColour   colour of the cuts that build up on its body (see wounds.js)
+//   hitSound      sound when your blade hits it (see sounds.js)
+//   voice         sound it makes now and then when you're nearby; voicePitch makes it deeper (<1)
 //
 // Extra numbers only bosses use:
 //   isBoss              shows the big health bar at the top of the screen
@@ -43,6 +45,9 @@ export const ENEMY_TYPES = {
     eyeColour: 0xff5a1f,
     bloodColour: 0xa01212,
     woundColour: 0xa81818,
+    hitSound: 'hitFlesh',
+    voice: 'enemyGroan',
+    voicePitch: 1,
   },
   skeleton: {
     name: 'Skeleton',
@@ -62,6 +67,9 @@ export const ENEMY_TYPES = {
     eyeColour: 0x6ad7ff,
     bloodColour: 0xd9d2bf, // bone chips, not blood
     woundColour: 0x3a2c20, // dark cracks in the bone
+    hitSound: 'hitBone',
+    voice: 'boneRattle',
+    voicePitch: 1,
   },
 
   // ----- Bosses -----
@@ -83,6 +91,9 @@ export const ENEMY_TYPES = {
     eyeColour: 0xff3010,
     bloodColour: 0x8e0e0e,
     woundColour: 0x9a1212,
+    hitSound: 'hitFlesh',
+    voice: 'enemyGroan',
+    voicePitch: 0.6,
     isBoss: true,
     lightStaggerImmune: true,
     staggerResistance: 0.5,
@@ -108,6 +119,9 @@ export const ENEMY_TYPES = {
     eyeColour: 0x58c8ff,
     bloodColour: 0xd2c9b0, // bone chips, not blood
     woundColour: 0x3a2c20, // dark cracks in the bone
+    hitSound: 'hitBone',
+    voice: 'enemyGroan',
+    voicePitch: 0.55,
     isBoss: true,
     lightStaggerImmune: true,
     staggerResistance: 0.5,
@@ -231,6 +245,10 @@ export function createEnemy(scene, typeName, x, z, world, difficulty = 1) {
     feet: model.root.position,              // where it stands on the floor (moving this moves the enemy)
     bloodColour: type.bloodColour,
     woundColour: type.woundColour,
+    hitSound: type.hitSound,
+    voice: type.voice,
+    voicePitch: type.voicePitch ?? 1,
+    nextVoice: 2 + Math.random() * 6,       // seconds until it next groans (see game.js)
     woundRoot: model.root,                  // the 3D model that cuts get stuck onto (see wounds.js)
     height: 1.7 * type.scale,               // roughly how tall it is (for placing hit effects)
     state: 'idle',          // 'idle' | 'chase' | 'windup' | 'strike' | 'recover' | 'stagger' | 'dead'

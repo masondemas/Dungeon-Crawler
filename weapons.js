@@ -32,6 +32,7 @@
 //   blockReduction    how much of a hit's damage blocking stops (0.6 = 60%)
 //   blockStaminaPerDamage  stamina used for each point of damage you block
 //
+//   swingWeight   how heavy the swoosh sounds (0 = light and quick, 1 = big and low)
 //   model         which shape to draw (see buildWeaponModel below)
 
 import * as THREE from 'three';
@@ -55,6 +56,7 @@ export const WEAPONS = {
     powerStagger: 0.5,
     blockReduction: 0.35,
     blockStaminaPerDamage: 1.5,
+    swingWeight: 0.1,
     model: 'dagger',
   },
   sword: {
@@ -75,6 +77,7 @@ export const WEAPONS = {
     powerStagger: 0.8,
     blockReduction: 0.6,
     blockStaminaPerDamage: 1.2,
+    swingWeight: 0.35,
     model: 'sword',
   },
   axe: {
@@ -95,6 +98,7 @@ export const WEAPONS = {
     powerStagger: 0.9,
     blockReduction: 0.5,
     blockStaminaPerDamage: 1.3,
+    swingWeight: 0.8,
     model: 'axe',
   },
   mace: {
@@ -115,6 +119,7 @@ export const WEAPONS = {
     powerStagger: 1.3,
     blockReduction: 0.55,
     blockStaminaPerDamage: 1.3,
+    swingWeight: 1.0,
     model: 'mace',
   },
 };

@@ -91,7 +91,7 @@ const TAP_GRACE = 0.15;
 // ---------- Setup ----------
 // The weapon is drawn in its own little scene on top of the world,
 // so it never pokes through walls when you stand close to them.
-export function createCombat({ camera, getTargets, canSee, useStamina, getStamina, onHitTarget, onChargeChange }) {
+export function createCombat({ camera, getTargets, canSee, useStamina, getStamina, onHitTarget, onChargeChange, onSwingStart = () => {}, onSwingMissed = () => {} }) {
   const weaponScene = new THREE.Scene();
   const weaponCamera = new THREE.PerspectiveCamera(60, camera.aspect, 0.01, 10);
   weaponScene.add(new THREE.HemisphereLight(0xffe2b0, 0x221811, 0.9));
@@ -228,6 +228,12 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
       power = 0;
     }
     onChargeChange(null);
+    enterStrike();
+  }
+
+  // The fast part of a swing begins (this is when the swoosh plays)
+  function enterStrike() {
+    onSwingStart({ weapon, isPower: power > 0, isFinisher: power === 0 && swing === SW.overhead });
     setPhase('strike');
   }
 
@@ -319,7 +325,7 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
       if (t >= 1) {
         // Still holding the button? Start charging a power attack.
         if (attackHeld) { queued = false; setPhase('charging'); }
-        else setPhase('strike');
+        else enterStrike();
       }
     } else if (phase === 'charging') {
       const charge = Math.min(Math.max(phaseTime - TAP_GRACE, 0) / weapon.powerChargeTime, 1);
@@ -337,7 +343,10 @@ export function createCombat({ camera, getTargets, canSee, useStamina, getStamin
       pos.lerpVectors(from.pos, swing.strike.pos, easeIn(t));
       quat.slerpQuaternions(from.quat, swing.strike.quat, easeIn(t));
       if (t > 0.3) checkHits(); // the start of the swing is too early to hit
-      if (t >= 1) setPhase('follow');
+      if (t >= 1) {
+        if (alreadyHit.size === 0) onSwingMissed(); // hit nothing (maybe a wall?)
+        setPhase('follow');
+      }
     } else if (phase === 'follow') {
       // Follow-through: the weapon's weight carries it a little further, slowing down
       const t = Math.min(phaseTime / (followTime() * (power > 0 ? 1.4 : 1)), 1);

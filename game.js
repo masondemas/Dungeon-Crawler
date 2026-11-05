@@ -1,5 +1,5 @@
 // =============================================================
-//  Dungeon Crawler - Combat upgrade, stage 3: accumulating wounds
+//  Dungeon Crawler - Combat upgrade, stage 4: sound
 // =============================================================
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -14,6 +14,7 @@ import { createPickup, createExitPortal } from './pickups.js';
 import { loadProgress, saveProgress, clearProgress } from './progress.js';
 import { createBloodSystem } from './effects.js';
 import { findHitSurface, addWound, setBloodied } from './wounds.js';
+import * as sounds from './sounds.js';
 
 // ---------- Settings (tweak these freely) ----------
 const SETTINGS = {
@@ -94,7 +95,10 @@ function takeDamage(amount, { quiet = false } = {}) {
   if (player.dead || amount <= 0) return;
   player.health = Math.max(0, player.health - amount);
   player.timeSinceHit = 0; // getting hurt resets the health regen wait
-  if (!quiet) flashHurt();
+  if (!quiet) {
+    flashHurt();
+    sounds.play('playerHurt');
+  }
   if (player.health === 0) playerDies();
 }
 
@@ -129,6 +133,7 @@ function receiveEnemyAttack(amount, attacker) {
         takeDamage(applyArmor(amount - blocked), { quiet: true });
         combat.blockImpact();
         flashBlock();
+        sounds.play(combat.getShield() ? 'hitShield' : 'blockWeapon', { pitch: attacker.isBoss ? 0.75 : 1 });
         showMessage('Blocked', '#cfe0ff');
         if (attacker.type.knockback) knockPlayerBack(attacker, attacker.type.knockback * 0.6);
         else attacker.recoil(); // small enemies bounce off your block; bosses don't
@@ -465,7 +470,10 @@ function updateTorchLights(time) {
 const controls = new PointerLockControls(camera, document.body);
 const overlay = document.getElementById('overlay');
 
-overlay.addEventListener('click', () => { if (!player.dead && !levelDone) controls.lock(); });
+overlay.addEventListener('click', () => {
+  sounds.unlockAudio(); // browsers only allow sound after a click
+  if (!player.dead && !levelDone) controls.lock();
+});
 controls.addEventListener('lock', () => overlay.classList.add('hidden'));
 controls.addEventListener('unlock', () => {
   if (!player.dead && !levelDone) overlay.classList.remove('hidden');
@@ -497,6 +505,8 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyX' && !e.repeat && controls.isLocked && !player.dead) cycleArmor();
   // R = drink a healing potion
   if (e.code === 'KeyR' && !e.repeat && controls.isLocked && !player.dead) drinkPotion();
+  // M = mute / unmute
+  if (e.code === 'KeyM' && !e.repeat) showMessage(sounds.toggleMute() ? 'Sound off' : 'Sound on');
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
@@ -663,6 +673,32 @@ function spurtBlood(target, isPower, info, impact) {
   });
 }
 
+// ---------- Enemy groans ----------
+// Each nearby living enemy groans (or rattles) every few seconds, at random.
+// Closer = louder; it comes from the enemy's side (left/right speaker).
+const VOICE_RANGE = 14; // metres
+let voicesPlaying = 0;
+function updateEnemyVoices(dt) {
+  const look = new THREE.Vector3();
+  camera.getWorldDirection(look);
+  const right = new THREE.Vector3(-look.z, 0, look.x).normalize();
+  for (const enemy of enemies) {
+    if (!enemy.alive || !enemy.voice) continue;
+    enemy.nextVoice -= dt;
+    if (enemy.nextVoice > 0) continue;
+    enemy.nextVoice = 3 + Math.random() * 6; // next groan in 3-9 seconds
+    const dx = enemy.feet.x - camera.position.x;
+    const dz = enemy.feet.z - camera.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > VOICE_RANGE || voicesPlaying >= 2) continue; // too far, or too many at once
+    const volume = Math.pow(1 - dist / VOICE_RANGE, 1.5) * (enemy.isBoss ? 1 : 0.7);
+    const pan = (dx * right.x + dz * right.z) / Math.max(dist, 1);
+    sounds.play(enemy.voice, { volume, pan, pitch: enemy.voicePitch });
+    voicesPlaying += 1;
+    setTimeout(() => { voicesPlaying -= 1; }, 1200);
+  }
+}
+
 // ---------- Combat ----------
 const combat = createCombat({
   camera,
@@ -677,6 +713,7 @@ const combat = createCombat({
     const x = (p.x + 1) / 2 * window.innerWidth;
     const y = (1 - p.y) / 2 * window.innerHeight - 40;
     showDamageNumber(x, y, damage, isPower || info.isFinisher);
+    sounds.play(target.hitSound || 'hitFlesh', { volume: isPower || info.isFinisher ? 1 : 0.8, pitch: isPower ? 0.85 : 1 });
 
     const impact = findImpact(target, info);
     spurtBlood(target, isPower, info, impact);
@@ -691,6 +728,20 @@ const combat = createCombat({
   },
   // Show how charged a power attack is on the crosshair
   onChargeChange: setCharge,
+  // Swoosh (heavier for axes, maces and power attacks) and sometimes a grunt
+  onSwingStart({ weapon, isPower, isFinisher }) {
+    const weight = weapon.swingWeight + (isPower ? 0.4 : isFinisher ? 0.2 : 0);
+    sounds.play(weight >= 0.6 ? 'swingHeavy' : 'swingLight', { weight, volume: isPower ? 1 : 0.8 });
+    if (isPower || isFinisher || Math.random() < 0.3) sounds.play('playerGrunt', { volume: isPower ? 0.9 : 0.6 });
+  },
+  // The swing hit nothing. Was there a wall in the way?
+  onSwingMissed() {
+    const look = new THREE.Vector3();
+    camera.getWorldDirection(look);
+    look.y = 0;
+    const tip = camera.position.clone().addScaledVector(look.normalize(), combat.getWeapon().reach * 0.85);
+    if (!canSee(camera.position, tip)) sounds.play('hitWall');
+  },
 });
 // ---------- Equipment ----------
 function refreshEquipmentPanel(weapon = combat.getWeapon()) {
@@ -783,6 +834,7 @@ function animate() {
     combat.setBlock(blockButtonHeld && player.guardBrokenTimer <= 0);
     updateRegen(dt);
     blood.update(dt);
+    updateEnemyVoices(dt);
 
     // Walk over a potion to pick it up
     for (const pickup of pickups) {

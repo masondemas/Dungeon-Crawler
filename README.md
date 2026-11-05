@@ -16,6 +16,7 @@ Built with plain HTML + JavaScript and [Three.js](https://threejs.org/).
 - **Hold right click**: block
 - **1 – 4**: switch weapon (dagger, sword, axe, mace)
 - **R**: drink a healing potion
+- **M**: mute / unmute
 - **Q**: switch shield · **X**: switch armor (test keys)
 - **Esc**: release the mouse
 
@@ -30,5 +31,7 @@ Then visit http://localhost:8000. Double-clicking `index.html` won't work.
 Two levels, each ending in a boss. Kill the boss, then walk into the glowing exit.
 
 Want to design a level? Edit the text maps in [levels.js](levels.js).
+
+Want real sound effects? Drop `.mp3` files into the [sounds](sounds/) folder (see its README).
 
 See [NOTES.md](NOTES.md) for the game design, progress and plans.

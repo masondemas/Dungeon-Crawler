@@ -20,6 +20,8 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
 | `enemies.js` | Enemy and boss stats (data only), enemy models and behaviour |
 | `effects.js` | Blood spurts: one pooled particle system for all droplets |
 | `wounds.js` | Cuts that build up on enemies where they were hit, and the overall bloodied look |
+| `sounds.js` | Sound manager: plays a real file from `sounds/` if there is one, otherwise a generated placeholder |
+| `sounds/` | Drop real `.mp3` files here to replace sounds (see `sounds/README.md`) |
 | `progress.js` | Carries potions and gear from one level to the next (browser session storage) |
 | `levels.js` | The level maps, drawn as text (edit this to design levels) |
 | `NOTES.md` | This file |
@@ -314,6 +316,32 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
   - Mark anything that shouldn't get cuts (health bars, weapon glows) with
     `object.userData.noWounds = true`.
 
+### Combat upgrade, stage 4: Sound ✅
+- **One sound manager** (`sounds.js`). Every sound in the game is played by name
+  with `sounds.play(name, options)`. Options: volume, pitch, pan (left/right),
+  and weight (for swooshes).
+- **Replacing a sound with a real recording:** drop an `.mp3` named exactly
+  like the sound into the `sounds/` folder (e.g. `sounds/hitFlesh.mp3`) and
+  reload. Different name or format? Edit `SOUND_FILES` in `sounds.js`.
+  Missing files fall back to the generated sound (they may show as harmless
+  "404" lines in the browser console). Full list in `sounds/README.md`.
+- **Generated placeholder sounds** (Web Audio API: filtered noise, tones,
+  and buzzy tones through "vowel" filters for voices):
+  - `swingLight` / `swingHeavy`: swoosh sweeping high → low. Heavier
+    weapons (`swingWeight` in `weapons.js`: dagger 0.1, sword 0.35, axe 0.8,
+    mace 1.0) and power attacks sound lower, longer and louder.
+  - `hitFlesh` (deep thump and wet crunch), `hitBone` (sharp crack, for
+    skeletons), `hitStraw` (dummies). Set per enemy by `hitSound`.
+  - `hitShield` (dull wooden thud), `blockWeapon` (metal clang, blocking
+    without a shield), `hitWall` (your swing hits a wall within reach and no enemy).
+  - `playerGrunt` on power attacks and finishers, plus 30% of normal swings;
+    `playerHurt` when you take damage (not on blocked hits).
+  - `enemyGroan` / `boneRattle`: each nearby enemy (within 14 m) every
+    3–9 s at random. Louder when closer, panned left/right towards it, at most
+    2 at once. Bosses groan deeper (`voicePitch`). Set per enemy by `voice`.
+- Every play gets a random **±8% pitch change** so repeats don't sound identical.
+- **M** mutes/unmutes. Sound starts after the first click (browser rule).
+
 ## Planned build order
 
 1. ~~One room, WASD + mouse look, collisions, crosshair, hint~~ ✅
@@ -331,14 +359,14 @@ Live at: https://masondemas.github.io/Dungeon-Crawler/
     **Next:** playtest. Use the time on the level complete screen to grow the
     levels towards 10–12 minutes each. Then the graphics pass (see Graphics plan).
 11. Menus: start, death/restart, level complete.
-12. Polish: sounds, better low-poly models, lighting tweaks.
+12. Polish: better low-poly models, lighting tweaks, real sound recordings.
 
 ## Combat upgrade (4 stages, requested after step 10)
 
 1. ~~Combo swings (alternating directions, overhead finisher, wind-up / strike / follow-through)~~ ✅
 2. ~~Blood spurts on hits (bigger on power attacks and the finisher)~~ ✅
 3. ~~Accumulating wounds on enemies (must work with real 3D models later)~~ ✅
-4. Sound: Web Audio placeholder sounds in one sound manager, replaceable with files
+4. ~~Sound: Web Audio placeholder sounds in one sound manager, replaceable with files~~ ✅
 
 ## Known issues / limitations
 
